@@ -1,7 +1,11 @@
+import sys
 import os
 import tensorflow as tf
-
 from slim.deployment import model_deploy
+
+# Add repo's parent's path to module search path so that we can import as in: from squeezenet import inputs
+parent_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(parent_path)
 
 from squeezenet import inputs
 from squeezenet import networks
@@ -180,5 +184,4 @@ def run(args=None):
         _run(args)
 
 
-if __name__ == '__main__':
-    run()
+

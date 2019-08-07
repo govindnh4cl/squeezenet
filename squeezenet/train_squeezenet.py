@@ -1,16 +1,27 @@
-import sys
 import os
-import tensorflow as tf
-from slim.deployment import model_deploy
+import sys
+import warnings
 
-# Add repo's parent's path to module search path so that we can import as in: from squeezenet import inputs
-parent_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(parent_path)
+with warnings.catch_warnings():
+    warnings.simplefilter(action='ignore', category=FutureWarning)  # Disable FutureWarning in TF's prints
+    import tensorflow as tf
 
-from squeezenet import inputs
-from squeezenet import networks
-from squeezenet import arg_parsing
-from squeezenet import metrics
+try:
+    from slim.deployment import model_deploy
+except ModuleNotFoundError as e:
+    print('Ignoring import error: {:s}'.format(str(e)))
+    pass
+
+try:
+    from squeezenet import arg_parsing
+    from squeezenet import inputs
+    from squeezenet import networks
+    from squeezenet import metrics
+except ImportError as e:
+    print('Ignoring import error: {:s}'.format(str(e)))
+    pass
+
+logger = tf.get_logger()
 
 
 def _run(args):

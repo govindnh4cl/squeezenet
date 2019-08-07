@@ -2,34 +2,35 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-from tensorflow.contrib.layers import conv2d, avg_pool2d, max_pool2d
-from tensorflow.contrib.layers import batch_norm, l2_regularizer
-from tensorflow.contrib.framework import add_arg_scope
-from tensorflow.contrib.framework import arg_scope
+import tensorflow.python as tf
+from tensorflow.python.keras.layers import Conv2D, AveragePooling2D, MaxPooling2D
+from tensorflow.python.keras.layers import BatchNormalization
+from tensorflow.python.keras.regularizers import l2
 
 
-@add_arg_scope
 def fire_module(inputs,
                 squeeze_depth,
                 expand_depth,
-                reuse=None,
-                scope=None):
-    with tf.variable_scope(scope, 'fire', [inputs], reuse=reuse):
-        with arg_scope([conv2d, max_pool2d]):
-            net = _squeeze(inputs, squeeze_depth)
-            net = _expand(net, expand_depth)
-        return net
+                batch_norm_decay,
+                weight_decay):
+    net = _squeeze(inputs, squeeze_depth, batch_norm_decay, weight_decay)
+    net = _expand(net, expand_depth, batch_norm_decay, weight_decay)
+    return net
 
 
-def _squeeze(inputs, num_outputs):
-    return conv2d(inputs, num_outputs, [1, 1], stride=1, scope='squeeze')
+def _squeeze(inputs, num_outputs, batch_norm_decay, weight_decay):
+    x = Conv2D(num_outputs, [1, 1], stride=1, kernel_regularizer=l2(weight_decay), data_format='channels_first')(inputs)
+    x = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=1)(x)
+    return x
 
 
-def _expand(inputs, num_outputs):
-    with tf.variable_scope('expand'):
-        e1x1 = conv2d(inputs, num_outputs, [1, 1], stride=1, scope='1x1')
-        e3x3 = conv2d(inputs, num_outputs, [3, 3], scope='3x3')
+def _expand(inputs, num_outputs, batch_norm_decay, weight_decay):
+    e1x1 = Conv2D(num_outputs, [1, 1], stride=1, kernel_regularizer=l2(weight_decay), data_format='channels_first')(inputs)
+    e1x1 = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=1)(e1x1)
+
+    e3x3 = Conv2D(num_outputs, [3, 3], kernel_regularizer=l2(weight_decay), data_format='channels_first')(inputs)
+    e3x3 = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=1)(e3x3)
+
     return tf.concat([e1x1, e3x3], 1)
 
 
@@ -45,28 +46,25 @@ class Squeezenet(object):
 
     def build(self, x, is_training):
         self._is_built = True
-        with tf.variable_scope(self.name, values=[x]):
-            with arg_scope(_arg_scope(is_training,
-                                      self._weight_decay,
-                                      self._batch_norm_decay)):
-                return self._squeezenet(x, self._num_classes)
+        return self._squeezenet(x, self._num_classes)
 
-    @staticmethod
-    def _squeezenet(images, num_classes=1000):
-        net = conv2d(images, 96, [7, 7], stride=2, scope='conv1')
-        net = max_pool2d(net, [3, 3], stride=2, scope='maxpool1')
-        net = fire_module(net, 16, 64, scope='fire2')
-        net = fire_module(net, 16, 64, scope='fire3')
-        net = fire_module(net, 32, 128, scope='fire4')
-        net = max_pool2d(net, [3, 3], stride=2, scope='maxpool4')
-        net = fire_module(net, 32, 128, scope='fire5')
-        net = fire_module(net, 48, 192, scope='fire6')
-        net = fire_module(net, 48, 192, scope='fire7')
-        net = fire_module(net, 64, 256, scope='fire8')
-        net = max_pool2d(net, [3, 3], stride=2, scope='maxpool8')
-        net = fire_module(net, 64, 256, scope='fire9')
-        net = conv2d(net, num_classes, [1, 1], stride=1, scope='conv10')
-        net = avg_pool2d(net, [13, 13], stride=1, scope='avgpool10')
+    def _squeezenet(self, images, num_classes=1000):
+        net = Conv2D(96, [7, 7], strides=2, kernel_regularizer=l2(self._weight_decay), data_format='channels_first')(images)
+        net = BatchNormalization(momentum=self._batch_norm_decay, fused=True, axis=1)(net)
+        net = MaxPooling2D([3, 3], strides=2, data_format='channels_first')(net)
+        net = fire_module(net, 16, 64, self._batch_norm_decay, self._weight_decay)
+        net = fire_module(net, 16, 64, self._batch_norm_decay, self._weight_decay)
+        net = fire_module(net, 32, 128, self._batch_norm_decay, self._weight_decay)
+        net = MaxPooling2D([3, 3], stride=2, data_format='channels_first')(net)
+        net = fire_module(net, 32, 128, self._batch_norm_decay, self._weight_decay)
+        net = fire_module(net, 48, 192, self._batch_norm_decay, self._weight_decay)
+        net = fire_module(net, 48, 192, self._batch_norm_decay, self._weight_decay)
+        net = fire_module(net, 64, 256, self._batch_norm_decay, self._weight_decay)
+        net = MaxPooling2D([3, 3], stride=2, data_format='channels_first')(net)
+        net = fire_module(net, 64, 256, self._batch_norm_decay, self._weight_decay)
+        net = Conv2D(num_classes, [1, 1], stride=1, data_format='channels_first')(net)
+        net = BatchNormalization(momentum=self._batch_norm_decay, fused=True, axis=1)(net)
+        net = AveragePooling2D([13, 13], stride=1, data_format='channels_first')(net)
         logits = tf.squeeze(net, [2], name='logits')
         return logits
 
@@ -82,48 +80,27 @@ class Squeezenet_CIFAR(object):
 
     def build(self, x, is_training):
         self._is_built = True
-        with tf.variable_scope(self.name, values=[x]):
-            with arg_scope(_arg_scope(is_training,
-                                      self._weight_decay,
-                                      self._batch_norm_decay)):
-                return self._squeezenet(x)
+        return self._squeezenet(x)
 
     @staticmethod
     def _squeezenet(images, num_classes=10):
-        net = conv2d(images, 96, [2, 2], scope='conv1')
-        net = max_pool2d(net, [2, 2], scope='maxpool1')
-        net = fire_module(net, 16, 64, scope='fire2')
-        net = fire_module(net, 16, 64, scope='fire3')
-        net = fire_module(net, 32, 128, scope='fire4')
-        net = max_pool2d(net, [2, 2], scope='maxpool4')
-        net = fire_module(net, 32, 128, scope='fire5')
-        net = fire_module(net, 48, 192, scope='fire6')
-        net = fire_module(net, 48, 192, scope='fire7')
-        net = fire_module(net, 64, 256, scope='fire8')
-        net = max_pool2d(net, [2, 2], scope='maxpool8')
-        net = fire_module(net, 64, 256, scope='fire9')
-        net = avg_pool2d(net, [4, 4], scope='avgpool10')
-        net = conv2d(net, num_classes, [1, 1],
-                     activation_fn=None,
-                     normalizer_fn=None,
-                     scope='conv10')
+        # TODO: Pass the default values of self._weight_decay and self._batch_norm_decay
+        net = Conv2D(images, 96, [2, 2])
+
+        net = MaxPooling2D(net, [2, 2])
+        net = fire_module(net, 16, 64)
+        net = fire_module(net, 16, 64)
+        net = fire_module(net, 32, 128)
+        net = MaxPooling2D(net, [2, 2])
+        net = fire_module(net, 32, 128)
+        net = fire_module(net, 48, 192)
+        net = fire_module(net, 48, 192)
+        net = fire_module(net, 64, 256)
+        net = MaxPooling2D(net, [2, 2])
+        net = fire_module(net, 64, 256)
+        net = AveragePooling2D(net, [4, 4])
+        net = Conv2D(net, num_classes, [1, 1], activation_fn=None, normalizer_fn=None)
         logits = tf.squeeze(net, [2], name='logits')
         return logits
 
 
-def _arg_scope(is_training, weight_decay, bn_decay):
-    with arg_scope([conv2d],
-                   weights_regularizer=l2_regularizer(weight_decay),
-                   normalizer_fn=batch_norm,
-                   normalizer_params={'is_training': is_training,
-                                      'fused': True,
-                                      'decay': bn_decay}):
-        with arg_scope([conv2d, avg_pool2d, max_pool2d, batch_norm],
-                       data_format='NCHW') as sc:
-                return sc
-
-
-'''
-Network in Network: https://arxiv.org/abs/1312.4400
-See Section 3.2 for global average pooling
-'''

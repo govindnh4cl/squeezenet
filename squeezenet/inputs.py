@@ -1,120 +1,75 @@
+import numpy as np
+from tensorflow.python import keras
 import tensorflow as tf
 from tensorflow import data
 
 
+logger = tf.get_logger()
+
+
 class Pipeline(object):
-    def __init__(self, args, sess):
-        self.sess = sess
+    def __init__(self, args):
         self.batch_size = args.batch_size
 
-        target_image_size = (args.target_image_size
-                             if hasattr(args, 'target_image_size') else None)
+        # Load all images from CIFAR10
+        print('Getting input data... ')
+        (self.x_train, self.y_train), (self.x_test, self.y_test) = \
+            keras.datasets.cifar10.load_data()
+        print('Got all input data.')
 
-        training_dataset = self._create_dataset(
-            batch_size=args.batch_size * args.num_gpus,
-            pad_batch=False,
-            repeat=None,
-            num_input_threads=args.num_input_threads,
-            shuffle=True,
-            shuffle_buffer=args.shuffle_buffer,
-            seed=args.seed,
-            files=args.train_tfrecord_filepaths,
-            distort_image=True,
-            target_image_size=target_image_size
-        )
+        # TODO: Apply pre-processing
 
-        validation_dataset = self._create_dataset(
-            batch_size=args.batch_size * args.num_gpus,
-            pad_batch=True,
-            repeat=1,
-            num_input_threads=args.num_input_threads,
-            shuffle=False,
-            shuffle_buffer=None,
-            files=args.validation_tfrecord_filepaths,
-            distort_image=False,
-            target_image_size=target_image_size
-        )
+        # Convert to channel-first
+        self.x_train = tf.transpose(self.x_train, [0, 3, 1, 2])
+        self.x_test = tf.transpose(self.x_test, [0, 3, 1, 2])
 
-        self._handle = tf.placeholder(tf.string, shape=[])
-        self._is_training = tf.placeholder(tf.bool, [], 'is_training')
-        iterator = data.Iterator.from_string_handle(
-            self._handle, training_dataset.output_types, training_dataset.output_shapes
-        )
+        # Convert labels to one-hot
+        self.y_train = tf.one_hot(indices=self.y_train, depth=10, axis=1, on_value=1, off_value=0, dtype=tf.int32)
+        self.y_test = tf.one_hot(indices=self.y_test, depth=10, axis=1, on_value=1, off_value=0, dtype=tf.int32)
 
-        self.data = iterator.get_next()
+        # Change shape from (batch_size, num_classes, 1) to (batch_size, num_classes)
+        self.y_train = tf.squeeze(self.y_train, axis=[2])
+        self.y_test = tf.squeeze(self.y_test, axis=[2])
 
-        training_iterator = training_dataset.make_one_shot_iterator()
-        self.validation_iterator = validation_dataset.make_initializable_iterator()
-        self.initialize_validation_data()
+        count_train_val = len(self.x_train)
+        self.count_test = len(self.x_test)
+        self.count_train = int(count_train_val * 0.9)
+        self.count_val = count_train_val - self.count_train
+        self.count_total = self.count_train + self.count_val + self.count_test
+        self.train_val_datset = tf.data.Dataset.from_tensor_slices((self.x_train, self.y_train))  # Init from data
+        self.train_val_datset = self.train_val_datset.shuffle(buffer_size=count_train_val)  # Shuffle
+        self.train_dataset = self.train_val_datset.take(self.count_train)  # Get just the train set
+        self.val_dataset = self.train_val_datset.skip(self.count_train)  # Get just the validation set
+        self.test_dataset = tf.data.Dataset.from_tensor_slices((self.x_test, self.y_test))  # Init from data
+        self.test_dataset = self.test_dataset.shuffle(buffer_size=self.count_test)  # Shuffle
 
-        self._training_handle = sess.run(training_iterator.string_handle())
-        self._validation_handle = sess.run(self.validation_iterator.string_handle())
+        # Convert into batched datasets
+        self.train_dataset = self.train_dataset.batch(self.batch_size, drop_remainder=False)
+        self.val_dataset = self.val_dataset.batch(self.batch_size, drop_remainder=False)
+        self.test_dataset = self.test_dataset.batch(self.batch_size, drop_remainder=False)
 
-    @property
-    def is_training(self):
-        return self._is_training
+        print('Count samples: Train={:d}({:.1f}%) Validation={:d}({:.1f}%) Test={:d}({:.1f}%)'.format(
+            self.count_train, 100 * self.count_train / self.count_total,
+            self.count_val, 100 * self.count_val / self.count_total,
+            self.count_test, 100 * self.count_test / self.count_total))
 
-    @property
-    def training_data(self):
-        return {self._handle: self._training_handle,
-                self._is_training: True}
+        print('Batch size: {:d} Steps: Train={:d} Validation={:d} Test={:d}'.format(
+              self.batch_size,
+              np.round(self.count_train/self.batch_size).astype(int),
+              np.round(self.count_val/self.batch_size).astype(int),
+              np.round(self.count_test/self.batch_size).astype(int)))
 
-    @property
-    def validation_data(self):
-        return {self._handle: self._validation_handle,
-                self._is_training: False}
+        # TODO: For cifar10, we don't need to resize, but for imagenet we might have to apply preprocessing
+        return
 
-    def initialize_validation_data(self):
-        self.sess.run(self.validation_iterator.initializer)
+    def get_train_dataset(self):
+        return self.train_dataset
 
-    @staticmethod
-    def _create_dataset(batch_size,
-                        pad_batch,
-                        repeat,
-                        num_input_threads,
-                        shuffle,
-                        shuffle_buffer,
-                        files,
-                        seed=1337,
-                        distort_image=None,
-                        target_image_size=None):
-        assert batch_size % 2 == 0
+    def get_val_dataset(self):
+        return self.val_dataset
 
-        input_processor = _InputProcessor(
-            batch_size=batch_size,
-            num_threads=num_input_threads,
-            repeat=repeat,
-            shuffle=shuffle,
-            shuffle_buffer=shuffle_buffer,
-            seed=seed,
-            distort_image=distort_image,
-            target_image_size=target_image_size
-        )
-
-        dataset = input_processor.from_tfrecords(files)
-        if pad_batch:
-            dataset = dataset.padded_batch(
-                batch_size=1,
-                padded_shapes=_get_padded_shapes(dataset.output_shapes, batch_size),
-                padding_values=_get_padded_types(dataset.output_types)
-            ).apply(tf.contrib.data.unbatch())
-        return dataset
-
-
-def _get_padded_shapes(output_shapes, batch_size):
-    feature_shapes = dict()
-    for feature, shape in output_shapes[0].items():
-        feature_dims = shape.dims[1:]
-        feature_shapes[feature] = tf.TensorShape(
-            [tf.Dimension(batch_size)] + feature_dims)
-    return feature_shapes, batch_size
-
-
-def _get_padded_types(output_types):
-    feature_values = dict()
-    for feature, feature_type in output_types[0].items():
-        feature_values[feature] = tf.constant(-1, feature_type)
-    return feature_values, tf.constant(-1, tf.int64)
+    def get_test_dataset(self):
+        return self.test_dataset
 
 
 class _InputProcessor(object):
@@ -123,7 +78,7 @@ class _InputProcessor(object):
                  num_threads,
                  repeat,
                  shuffle,
-                 shuffle_buffer,
+                 # shuffle_buffer,
                  seed,
                  distort_image=None,
                  target_image_size=None):
@@ -131,7 +86,7 @@ class _InputProcessor(object):
         self.num_threads = num_threads
         self.repeat = repeat
         self.shuffle = shuffle
-        self.shuffle_buffer = shuffle_buffer
+        # self.shuffle_buffer = shuffle_buffer
         self.seed = seed
         self.distort_image = distort_image
         self.target_image_size = target_image_size

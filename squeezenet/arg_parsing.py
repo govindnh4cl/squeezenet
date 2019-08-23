@@ -23,31 +23,18 @@ class ArgParser(object):
             help='''Output directory for checkpoints and summaries.'''
         )
         parser.add_argument(
-            '--train_tfrecord_filepaths',
-            nargs='+',
+            '--dataset',
             type=str,
             required=True,
-            help='''Filepaths of the TFRecords to be used for training.'''
-        )
-        parser.add_argument(
-            '--validation_tfrecord_filepaths',
-            nargs='+',
-            type=str,
-            required=True,
-            help='''Filepaths of the TFRecords to be used for evaluation.'''
+            default=['cifar10'],
+            choices=['imagenet', 'cifar10'],
+            help='Dataset to use'
         )
         parser.add_argument(
             '--network',
             type=str,
             required=True,
             choices=networks.catalogue
-        )
-        parser.add_argument(
-            '--target_image_size',
-            default=[224, 224],
-            nargs=2,
-            type=int,
-            help='''Input images will be resized to this.'''
         )
         parser.add_argument(
             '--num_classes',
@@ -86,20 +73,20 @@ class ArgParser(object):
             help='''L2 regularization factor for convolution layer weights.
                     0.0 indicates no regularization.'''
         )
-        parser.add_argument(
-            '--num_input_threads',
-            default=1,
-            type=int,
-            required=True,
-            help='''The number input elements to process in parallel.'''
-        )
-        parser.add_argument(
-            '--shuffle_buffer',
-            type=int,
-            required=True,
-            help='''The minimum number of elements in the pool of training data
-                    from which to randomly sample.'''
-        )
+        # parser.add_argument(
+        #     '--num_input_threads',
+        #     default=1,
+        #     type=int,
+        #     required=True,
+        #     help='''The number input elements to process in parallel.'''
+        # )
+        # parser.add_argument(
+        #     '--shuffle_buffer',
+        #     type=int,
+        #     required=True,
+        #     help='''The minimum number of elements in the pool of training data
+        #             from which to randomly sample.'''
+        # )
         parser.add_argument(
             '--seed',
             default=1337,

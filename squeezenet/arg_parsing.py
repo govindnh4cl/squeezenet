@@ -93,28 +93,28 @@ class ArgParser(object):
             type=int
         )
         parser.add_argument(
-            '--max_train_steps',
-            default=1801,
+            '--max_train_epochs',
+            default=1,
             type=int
         )
-        parser.add_argument(
-            '--summary_interval',
-            default=100,
-            type=int
-        )
-        parser.add_argument(
-            '--checkpoint_interval',
-            default=100,
-            type=int
-        )
-        parser.add_argument(
-            '--validation_interval',
-            default=100,
-            type=int
-        )
-        parser.add_argument(
-            '--keep_last_n_checkpoints',
-            default=3,
-            type=int
-        )
+        # parser.add_argument(
+        #     '--summary_interval',
+        #     default=100,
+        #     type=int
+        # )
+        # parser.add_argument(
+        #     '--checkpoint_interval',
+        #     default=100,
+        #     type=int
+        # )
+        # parser.add_argument(
+        #     '--validation_interval',
+        #     default=100,
+        #     type=int
+        # )
+        # parser.add_argument(
+        #     '--keep_last_n_checkpoints',
+        #     default=3,
+        #     type=int
+        # )
         return parser

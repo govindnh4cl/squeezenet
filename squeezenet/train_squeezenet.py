@@ -1,7 +1,7 @@
 import os
+import time
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
 
 try:
     from squeezenet import arg_parsing
@@ -86,54 +86,64 @@ def _run(args):
 
     '''Main Loop'''
     assert isinstance(train_dataset, tf.data.Dataset)
-    print_freq = 10  # Print after this many batches
-    for batch_idx, train_batch in enumerate(train_dataset):
-        x, y = train_batch[0], train_batch[1]
-        loss = model.train_on_batch(x, y)
 
-        if batch_idx % print_freq == 0:
-            print('Step: {:5d}. Loss: {:}'.format(batch_idx, loss))
-            # print('Batch labels: {:}'.format(np.argmax(y, axis=1).reshape((-1, ))))
+    # Loop over epochs
+    for epoch_idx in range(args.max_train_epochs):
+        start_time = time.time()
+        batch_losses = list()
+        # Loop over batches in the epoch
+        for batch_idx, train_batch in enumerate(train_dataset):
+            x, y = train_batch[0], train_batch[1]
+            batch_loss = model.train_on_batch(x, y)
+            batch_losses.append(batch_loss)
 
-        '''Summary Hook'''
-        # if train_step % args.summary_interval == 0:
-        #     results = sess.run(
-        #         fetches={'accuracy': train_metrics.accuracy,
-        #                  'summary': all_summaries},
-        #         feed_dict=pipeline.training_data
-        #     )
-        #     # train_writer.add_summary(results['summary'], train_step)
-        #     print('Train Step {:<5}:  {:>.4}'
-        #           .format(train_step, results['accuracy']))
+            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, np.mean(batch_losses)), end='')
 
-        '''Checkpoint Hooks'''
-        # if train_step % args.checkpoint_interval == 0:
-        #     saver.save(sess, save_path, global_step)
+            '''Summary Hook'''
+            # if train_step % args.summary_interval == 0:
+            #     results = sess.run(
+            #         fetches={'accuracy': train_metrics.accuracy,
+            #                  'summary': all_summaries},
+            #         feed_dict=pipeline.training_data
+            #     )
+            #     # train_writer.add_summary(results['summary'], train_step)
+            #     print('Train Step {:<5}:  {:>.4}'
+            #           .format(train_step, results['accuracy']))
 
-        # sess.run(train_metrics.reset_op)
-        #
-        # '''Eval Hook'''
-        # if train_step % args.validation_interval == 0:
-        #     while True:
-        #         try:
-        #             sess.run(
-        #                 fetches=validation_metrics.update_op,
-        #                 feed_dict=pipeline.validation_data
-        #             )
-        #         except tf.errors.OutOfRangeError:
-        #             break
-        #     results = sess.run({'accuracy': validation_metrics.accuracy})
-        #
-        #     print('Evaluation Step {:<5}:  {:>.4}'
-        #           .format(train_step, results['accuracy']))
-        #
-        #     # summary = tf.Summary(value=[
-        #     #     tf.Summary.Value(tag='accuracy', simple_value=results['accuracy']),
-        #     # ])
-        #     # eval_writer.add_summary(summary, train_step)
-        #     sess.run(validation_init_op)  # Reinitialize dataset and metrics
+            '''Checkpoint Hooks'''
+            # if train_step % args.checkpoint_interval == 0:
+            #     saver.save(sess, save_path, global_step)
+
+            # sess.run(train_metrics.reset_op)
+            #
+            # '''Eval Hook'''
+            # if train_step % args.validation_interval == 0:
+            #     while True:
+            #         try:
+            #             sess.run(
+            #                 fetches=validation_metrics.update_op,
+            #                 feed_dict=pipeline.validation_data
+            #             )
+            #         except tf.errors.OutOfRangeError:
+            #             break
+            #     results = sess.run({'accuracy': validation_metrics.accuracy})
+            #
+            #     print('Evaluation Step {:<5}:  {:>.4}'
+            #           .format(train_step, results['accuracy']))
+            #
+            #     # summary = tf.Summary(value=[
+            #     #     tf.Summary.Value(tag='accuracy', simple_value=results['accuracy']),
+            #     # ])
+            #     # eval_writer.add_summary(summary, train_step)
+            #     sess.run(validation_init_op)  # Reinitialize dataset and metrics
+
+        print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
+            epoch_idx,
+            np.mean(batch_losses),
+            time.time() - start_time))
 
     print('Training complete')
+
 
 def _configure_session():
     gpu_config = tf.GPUOptions(per_process_gpu_memory_fraction=.8)

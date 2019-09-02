@@ -168,6 +168,8 @@ class Squeezenet_CIFAR(Squeezenet, tf.keras.Model):
         logits = tf.squeeze(x, [2, 3], name='logits')
         out = self.l_16(logits)
 
+        tf.summary.scalar('Average std. dev.', tf.math.reduce_mean(tf.math.reduce_std(out, axis=1), axis=0))
+
         return out
 
     def get_keras_model(self):

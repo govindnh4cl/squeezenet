@@ -43,13 +43,12 @@ def _train_tf(cfg, network, train_dataset):
     #     sess.run(init_op)
     # starting_step = sess.run(global_step)
 
-    '''Main Loop'''
     @tf.function  # For faster training speed
-    def _train_step(nw, x_batch, opt):
-        batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
+    def _train_step(nw, batch_train, opt):
+        batch_x, batch_y = batch_train[0], batch_train[1]  # Get current batch samples
 
         with tf.GradientTape() as tape:
-            batch_y_pred = nw(x_batch, training=True)  # Run prediction on batch
+            batch_y_pred = nw(batch_x, training=True)  # Run prediction on batch
             loss_batch = loss_fn(batch_y, batch_y_pred)  # compute loss
 
         grads = tape.gradient(loss_batch, network.trainable_variables)  # compute gradient
@@ -57,22 +56,23 @@ def _train_tf(cfg, network, train_dataset):
 
         return loss_batch
 
-    batch_counter = 0
+    '''Main Loop'''
+    batch_counter = tf.zeros(1, dtype=tf.int64)
     # Loop over epochs
     for epoch_idx in range(cfg.max_train_epochs):
         start_time = time.time()
-        batch_losses = list()
+        running_loss = tf.keras.metrics.Mean()  # Running loss per sample
 
         # Loop over batches in the epoch
         for batch_idx, train_batch in enumerate(train_dataset):
-            tf.summary.experimental.set_step(batch_counter)  # Set step for summaries
+            tf.summary.experimental.set_step(batch_counter)  # Set step. Needed for summaries
 
-            batch_loss = _train_step(network, train_batch, optimizer)
+            batch_loss = _train_step(network, train_batch, optimizer)  # batch_loss is a Tensor scalar
 
-            batch_losses.append(batch_loss)
-            tf.summary.scalar('Train batch loss', batch_loss)
-
-            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, np.mean(batch_losses)), end='')
+            running_loss.update_state(batch_loss)
+            tf.summary.scalar('Train loss', batch_loss)
+            tf.summary.scalar('Train running-loss', running_loss.result())
+            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
 
             '''Checkpoint Hooks'''
             # if train_step % args.checkpoint_interval == 0:
@@ -101,13 +101,11 @@ def _train_tf(cfg, network, train_dataset):
             #     # eval_writer.add_summary(summary, train_step)
             #     sess.run(validation_init_op)  # Reinitialize dataset and metrics
 
-            # tf.summary.text('Loss tryout', 'test_stirng')
-            # tf.summary.text('Loss tryout', tf.as_string(tf.convert_to_tensor([batch_idx, 0.2])))
             batch_counter += 1
 
         print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
             epoch_idx,
-            np.mean(batch_losses),
+            running_loss.result(),
             time.time() - start_time))
 
     return
@@ -125,22 +123,24 @@ def _train_keras(cfg, model, train_dataset):
     # Loop over epochs
     for epoch_idx in range(cfg.max_train_epochs):
         start_time = time.time()
-        batch_losses = list()
+        running_loss = tf.keras.metrics.Mean()  # Running loss per sample
         # Loop over batches in the epoch
         for batch_idx, train_batch in enumerate(train_dataset):
             tf.summary.experimental.set_step(batch_counter)  # Set step for summaries
 
             batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
             batch_loss = model.train_on_batch(batch_x, batch_y)
-            batch_losses.append(batch_loss)
-            tf.summary.scalar('Train batch loss', batch_loss)
 
-            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, np.mean(batch_losses)), end='')
+            running_loss.update_state(batch_loss)
+            tf.summary.scalar('Train loss', batch_loss)
+            tf.summary.scalar('Train running-loss', running_loss.result())
+            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
+
             batch_counter += 1
 
         print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
             epoch_idx,
-            np.mean(batch_losses),
+            running_loss.result(),
             time.time() - start_time))
 
     return

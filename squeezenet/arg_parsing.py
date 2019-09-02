@@ -1,3 +1,4 @@
+import os
 import argparse
 from squeezenet import networks
 
@@ -20,8 +21,15 @@ class ArgParser(object):
             '--model_dir',
             type=str,
             required=True,
-            help='''Output directory for checkpoints and summaries.'''
+            help='''Output directory for checkpoints.'''
         )
+        parser.add_argument(
+            '--log_dir',
+            type=str,
+            default=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs')),
+            help='''Directory for logs'''
+        )
+
         parser.add_argument(
             '--dataset',
             type=str,

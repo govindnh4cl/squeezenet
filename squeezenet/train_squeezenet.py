@@ -1,5 +1,6 @@
 import os
 import time
+from easydict import EasyDict
 import numpy as np
 import tensorflow as tf
 
@@ -15,52 +16,10 @@ except ImportError as e:
 logger = tf.get_logger()
 
 
-def _run(args):
-    # TODO: Make sure all tensors are created on the GPU
-
-    network = networks.catalogue[args.network](args)
-
-    # deploy_config = _configure_deployment(args.num_gpus)
-    # sess = tf.Session(config=_configure_session())
-    #
-    # with tf.device(deploy_config.variables_device()):
-    #     global_step = tf.train.create_global_step()
-    #
-    # with tf.device(deploy_config.optimizer_device()):
-    #     optimizer = tf.train.AdamOptimizer(
-    #         learning_rate=args.learning_rate
-    #     )
-
-    '''Inputs'''
-    pipeline = inputs.Pipeline(args)  # Instantiate
-    val_dataset = pipeline.get_val_dataset()
-    train_dataset = pipeline.get_train_dataset()
-
-    '''Model Creation'''
-    model = network.build()  # A keras model
-
-    ''' compile '''
-    model.compile(loss='categorical_crossentropy', optimizer='adam')
-
-    '''Metrics'''
-    # train_metrics = metrics.Metrics(
-    #     labels=labels,
-    #     clone_predictions=[clone.outputs['predictions']
-    #                        for clone in model_dp.clones],
-    #     device=deploy_config.variables_device(),
-    #     name='training'
-    # )
-    # validation_metrics = metrics.Metrics(
-    #     labels=labels,
-    #     clone_predictions=[clone.outputs['predictions']
-    #                        for clone in model_dp.clones],
-    #     device=deploy_config.variables_device(),
-    #     name='validation',
-    #     padded_data=True
-    # )
-
-    '''Summaries'''
-    # model.summary()
+def _train_tf(cfg, model, train_dataset):
+    print('Training with Tensorflow API')
+    loss_fn = tf.keras.losses.CategoricalCrossentropy()
+    optimizer = tf.keras.optimizers.Adam()
 
     # with tf.device(deploy_config.variables_device()):
     #     train_writer = tf.summary.FileWriter(args.model_dir, sess.graph)
@@ -87,28 +46,28 @@ def _run(args):
     '''Main Loop'''
     assert isinstance(train_dataset, tf.data.Dataset)
 
+    batch_counter = 0
     # Loop over epochs
-    for epoch_idx in range(args.max_train_epochs):
+    for epoch_idx in range(cfg.max_train_epochs):
         start_time = time.time()
         batch_losses = list()
+
         # Loop over batches in the epoch
         for batch_idx, train_batch in enumerate(train_dataset):
-            x, y = train_batch[0], train_batch[1]
-            batch_loss = model.train_on_batch(x, y)
+            tf.summary.experimental.set_step(batch_counter)  # Set step for summaries
+
+            batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
+
+            with tf.GradientTape() as tape:
+                batch_y_pred = model(batch_x, training=True)  # Run prediction on batch
+                batch_loss = loss_fn(batch_y, batch_y_pred)  # compute loss
+                grads = tape.gradient(batch_loss, model.trainable_variables)  # compute gradient
+                optimizer.apply_gradients(zip(grads, model.trainable_variables))  # Update weights
+
             batch_losses.append(batch_loss)
+            tf.summary.scalar('Train batch loss', batch_loss)
 
             print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, np.mean(batch_losses)), end='')
-
-            '''Summary Hook'''
-            # if train_step % args.summary_interval == 0:
-            #     results = sess.run(
-            #         fetches={'accuracy': train_metrics.accuracy,
-            #                  'summary': all_summaries},
-            #         feed_dict=pipeline.training_data
-            #     )
-            #     # train_writer.add_summary(results['summary'], train_step)
-            #     print('Train Step {:<5}:  {:>.4}'
-            #           .format(train_step, results['accuracy']))
 
             '''Checkpoint Hooks'''
             # if train_step % args.checkpoint_interval == 0:
@@ -137,13 +96,78 @@ def _run(args):
             #     # eval_writer.add_summary(summary, train_step)
             #     sess.run(validation_init_op)  # Reinitialize dataset and metrics
 
+            # tf.summary.text('Loss tryout', 'test_stirng')
+            # tf.summary.text('Loss tryout', tf.as_string(tf.convert_to_tensor([batch_idx, 0.2])))
+            batch_counter += 1
+
         print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
             epoch_idx,
             np.mean(batch_losses),
             time.time() - start_time))
 
-    print('Training complete')
+    return
 
+
+def _train_keras(cfg, model, train_dataset):
+    print('Training with keras API')
+    loss_fn = tf.keras.losses.CategoricalCrossentropy()
+    optimizer = tf.keras.optimizers.Adam()
+
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
+
+    '''Main Loop'''
+    assert isinstance(train_dataset, tf.data.Dataset)
+
+    batch_counter = 0
+    # Loop over epochs
+    for epoch_idx in range(cfg.max_train_epochs):
+        start_time = time.time()
+        batch_losses = list()
+        # Loop over batches in the epoch
+        for batch_idx, train_batch in enumerate(train_dataset):
+            tf.summary.experimental.set_step(batch_counter)  # Set step for summaries
+
+            batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
+            batch_loss = model.train_on_batch(batch_x, batch_y)
+            batch_losses.append(batch_loss)
+            tf.summary.scalar('Train batch loss', batch_loss)
+
+            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, np.mean(batch_losses)), end='')
+            batch_counter += 1
+
+        print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
+            epoch_idx,
+            np.mean(batch_losses),
+            time.time() - start_time))
+
+    return
+
+
+def _run(cfg):
+    # TODO: Make sure all tensors are created on the GPU
+
+    network = networks.catalogue[cfg.network](cfg)
+
+    '''Inputs'''
+    pipeline = inputs.Pipeline(cfg)  # Instantiate
+    val_dataset = pipeline.get_val_dataset()
+    train_dataset = pipeline.get_train_dataset()
+
+    train_summary_writer = tf.summary.create_file_writer(cfg.tb_dir)
+
+    with train_summary_writer.as_default():
+        tf.summary.experimental.set_step(0)  # Set step for summaries
+        with tf.device('/GPU:0'):  # Make sure that we're using GPU
+            '''Model Creation'''
+            model = network.build()  # A keras model
+            model.summary()
+
+            if 1:
+                _train_tf(cfg, model, train_dataset)
+            else:
+                _train_keras(cfg, model, train_dataset)
+
+        print('Training complete')
 
 def _configure_session():
     gpu_config = tf.GPUOptions(per_process_gpu_memory_fraction=.8)
@@ -153,7 +177,12 @@ def _configure_session():
 
 def run(args=None):
     args = arg_parsing.ArgParser().parse_args(args)
-    _run(args)
+
+    cfg = EasyDict(vars(args))
+    os.makedirs(args.log_dir, exist_ok=True)  # create directory if it doesn't exist
+    cfg.tb_dir = os.path.join(cfg.log_dir, time.strftime("%Y-%m-%d_%H-%M-%S"))  # Tensorboard directory
+
+    _run(cfg)
 
 
 

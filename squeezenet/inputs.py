@@ -18,6 +18,7 @@ class Pipeline(object):
         print('Got all input data.')
 
         # TODO: Apply pre-processing
+        self.x_train = tf.cast(self.x_train, tf.float32)
 
         # Convert to channel-first
         self.x_train = tf.transpose(self.x_train, [0, 3, 1, 2])
@@ -42,6 +43,11 @@ class Pipeline(object):
         self.val_dataset = self.train_val_datset.skip(self.count_train)  # Get just the validation set
         self.test_dataset = tf.data.Dataset.from_tensor_slices((self.x_test, self.y_test))  # Init from data
         self.test_dataset = self.test_dataset.shuffle(buffer_size=self.count_test)  # Shuffle
+
+        # Convert image dtype to float32
+        self.train_dataset = self.train_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
+        self.val_dataset = self.val_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
+        self.test_dataset = self.test_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
 
         # Convert into batched datasets
         self.train_dataset = self.train_dataset.batch(self.batch_size, drop_remainder=False)

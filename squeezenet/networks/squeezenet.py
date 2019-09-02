@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from abc import ABC, abstractmethod
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D, MaxPooling2D, BatchNormalization, Activation
 from tensorflow.keras.regularizers import l2
@@ -55,20 +56,33 @@ def _expand(inputs, num_outputs, batch_norm_decay, weight_decay):
     return tf.concat([e1x1, e3x3], 1)
 
 
-class Squeezenet(object):
-    """Original squeezenet architecture for 224x224 images."""
-    name = 'squeezenet'
-
+class Squeezenet(ABC):
+    """
+    Base class for Squeezenet architectures tuned for different datasets (image resolution)
+    """
     def __init__(self, args):
         self._num_classes = args.num_classes
         self._weight_decay = args.weight_decay
         self._batch_norm_decay = args.batch_norm_decay
-        self._input_shape = (3, 224, 224)
+        self._input_shape = None
+        return
+
+    @abstractmethod
+    def _define(self, num_classes):
+        raise NotImplemented
 
     def build(self):
-        return self._squeezenet(self._num_classes)
+        return self._define(self._num_classes)
 
-    def _squeezenet(self, num_classes=1000):
+class Squeezenet_Imagenet(Squeezenet):
+    """Original squeezenet architecture for 224x224 images."""
+    name = 'squeezenet'
+
+    def __init__(self, args):
+        Squeezenet.__init__(self, args)
+        self._input_shape = (3, 224, 224)
+
+    def _define(self, num_classes=1000):
         inp = Input(shape=self._input_shape)
 
         net = Conv2D(96, [7, 7], strides=2, activation = 'relu', kernel_regularizer=l2(self._weight_decay), data_format='channels_first', padding='same')(inp)
@@ -95,20 +109,15 @@ class Squeezenet(object):
         return model
 
 
-class Squeezenet_CIFAR(object):
+class Squeezenet_CIFAR(Squeezenet):
     """Modified version of squeezenet for CIFAR images"""
     name = 'squeezenet_cifar'
 
     def __init__(self, args):
-        self._num_classes = args.num_classes
-        self._weight_decay = args.weight_decay
-        self._batch_norm_decay = args.batch_norm_decay
+        Squeezenet.__init__(self, args)
         self._input_shape = (3, 32, 32)
 
-    def build(self):
-        return self._squeezenet_cifar(self._num_classes)
-
-    def _squeezenet_cifar(self, num_classes=10):
+    def _define(self, num_classes=10):
         inp = Input(shape=self._input_shape)
 
         net = Conv2D(96, [2, 2], activation='relu', kernel_regularizer=l2(self._weight_decay), data_format='channels_first', padding='same')(inp)
@@ -129,6 +138,13 @@ class Squeezenet_CIFAR(object):
         net = BatchNormalization(momentum=self._batch_norm_decay, fused=True, axis=1)(net)
         logits = tf.squeeze(net, [2, 3], name='logits')
         out = Activation('softmax')(logits)
+
+        # @tf.function
+        def summary_softmax_out(x):
+            tf.summary.text('Softmax tryout', 'test_stirng')
+            return x
+
+        # out = summary_softmax_out(out)
 
         model = Model(inputs=inp, outputs=out)
         return model

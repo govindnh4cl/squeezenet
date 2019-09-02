@@ -16,7 +16,7 @@ except ImportError as e:
 logger = tf.get_logger()
 
 
-def _train_tf(cfg, model, train_dataset):
+def _train_tf(cfg, network, train_dataset):
     print('Training with Tensorflow API')
     loss_fn = tf.keras.losses.CategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam()
@@ -46,6 +46,19 @@ def _train_tf(cfg, model, train_dataset):
     '''Main Loop'''
     assert isinstance(train_dataset, tf.data.Dataset)
 
+    @tf.function  # For faster training speed
+    def _train_step(nw, x_batch, opt):
+        batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
+
+        with tf.GradientTape() as tape:
+            batch_y_pred = nw(x_batch, training=True)  # Run prediction on batch
+            loss_batch = loss_fn(batch_y, batch_y_pred)  # compute loss
+
+        grads = tape.gradient(loss_batch, network.trainable_variables)  # compute gradient
+        opt.apply_gradients(zip(grads, network.trainable_variables))  # Update weights
+
+        return loss_batch
+
     batch_counter = 0
     # Loop over epochs
     for epoch_idx in range(cfg.max_train_epochs):
@@ -56,13 +69,7 @@ def _train_tf(cfg, model, train_dataset):
         for batch_idx, train_batch in enumerate(train_dataset):
             tf.summary.experimental.set_step(batch_counter)  # Set step for summaries
 
-            batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
-
-            with tf.GradientTape() as tape:
-                batch_y_pred = model(batch_x, training=True)  # Run prediction on batch
-                batch_loss = loss_fn(batch_y, batch_y_pred)  # compute loss
-                grads = tape.gradient(batch_loss, model.trainable_variables)  # compute gradient
-                optimizer.apply_gradients(zip(grads, model.trainable_variables))  # Update weights
+            batch_loss = _train_step(network, train_batch, optimizer)
 
             batch_losses.append(batch_loss)
             tf.summary.scalar('Train batch loss', batch_loss)
@@ -158,16 +165,16 @@ def _run(cfg):
     with train_summary_writer.as_default():
         tf.summary.experimental.set_step(0)  # Set step for summaries
         with tf.device('/GPU:0'):  # Make sure that we're using GPU
-            '''Model Creation'''
-            model = network.build()  # A keras model
-            model.summary()
-
             if 1:
-                _train_tf(cfg, model, train_dataset)
+                _train_tf(cfg, network, train_dataset)
             else:
+                '''Model Creation'''
+                model = network.get_keras_model()  # A keras model
+                model.summary()
                 _train_keras(cfg, model, train_dataset)
 
         print('Training complete')
+
 
 def _configure_session():
     gpu_config = tf.GPUOptions(per_process_gpu_memory_fraction=.8)

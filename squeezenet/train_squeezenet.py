@@ -44,8 +44,6 @@ def _train_tf(cfg, network, train_dataset):
     # starting_step = sess.run(global_step)
 
     '''Main Loop'''
-    assert isinstance(train_dataset, tf.data.Dataset)
-
     @tf.function  # For faster training speed
     def _train_step(nw, x_batch, opt):
         batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
@@ -123,8 +121,6 @@ def _train_keras(cfg, model, train_dataset):
     model.compile(loss='categorical_crossentropy', optimizer='adam')
 
     '''Main Loop'''
-    assert isinstance(train_dataset, tf.data.Dataset)
-
     batch_counter = 0
     # Loop over epochs
     for epoch_idx in range(cfg.max_train_epochs):
@@ -159,6 +155,7 @@ def _run(cfg):
     pipeline = inputs.Pipeline(cfg)  # Instantiate
     val_dataset = pipeline.get_val_dataset()
     train_dataset = pipeline.get_train_dataset()
+    assert isinstance(train_dataset, tf.data.Dataset)
 
     train_summary_writer = tf.summary.create_file_writer(cfg.tb_dir)
 

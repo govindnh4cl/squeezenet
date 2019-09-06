@@ -21,27 +21,22 @@ def _train_tf(cfg, network, train_dataset):
     loss_fn = tf.keras.losses.CategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam()
 
-    # with tf.device(deploy_config.variables_device()):
-    #     train_writer = tf.summary.FileWriter(args.model_dir, sess.graph)
-    #     eval_dir = os.path.join(args.model_dir, 'eval')
-    #     eval_writer = tf.summary.FileWriter(eval_dir, sess.graph)
-    #     tf.summary.scalar('accuracy', train_metrics.accuracy)
-    #     tf.summary.scalar('loss', model_dp.total_loss)
-    #     all_summaries = tf.summary.merge_all()
+    # Model checkpoints
+    ckpt_counter = tf.Variable(initial_value=0, trainable=False, dtype=tf.int64)
+    ckpt = tf.train.Checkpoint(ckpt_counter=ckpt_counter,
+                               optimizer=optimizer, model=network)
 
-    '''Model Checkpoints'''
-    # saver = tf.train.Saver(max_to_keep=args.keep_last_n_checkpoints)
-    # save_path = os.path.join(args.model_dir, 'model.ckpt')
+    ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
+                                           directory=cfg.dir_ckpt,
+                                           max_to_keep=3)
 
-    '''Model Initialization'''
-    # last_checkpoint = tf.train.latest_checkpoint(args.model_dir)
-    # if last_checkpoint:
-    #     saver.restore(sess, last_checkpoint)
-    # else:
-    #     init_op = tf.group(tf.global_variables_initializer(),
-    #                        tf.local_variables_initializer())
-    #     sess.run(init_op)
-    # starting_step = sess.run(global_step)
+    # Checkpoint restoration
+    ckpt.restore(ckpt_mngr.latest_checkpoint)
+    if ckpt_mngr.latest_checkpoint:
+        print('Restoring checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
+        ckpt.restore(ckpt_mngr.latest_checkpoint)
+    else:
+        print('No checkpoint found. Initializing from scratch.')
 
     @tf.function  # For faster training speed
     def _train_step(nw, batch_train, opt):
@@ -72,11 +67,7 @@ def _train_tf(cfg, network, train_dataset):
             running_loss.update_state(batch_loss)
             tf.summary.scalar('Train loss', batch_loss)
             tf.summary.scalar('Train running-loss', running_loss.result())
-            print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
-
-            '''Checkpoint Hooks'''
-            # if train_step % args.checkpoint_interval == 0:
-            #     saver.save(sess, save_path, global_step)
+            # print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
 
             # sess.run(train_metrics.reset_op)
             #
@@ -103,10 +94,20 @@ def _train_tf(cfg, network, train_dataset):
 
             batch_counter += 1
 
-        print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
-            epoch_idx,
-            running_loss.result(),
-            time.time() - start_time))
+        # Save checkpoint
+        if int(ckpt.ckpt_counter) % 1 == 0:
+            ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
+            save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
+            print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s. Saved checkpoint at {:s}'.format(
+                epoch_idx,
+                running_loss.result(),
+                time.time() - start_time,
+                save_path))
+        else:
+            print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
+                epoch_idx,
+                running_loss.result(),
+                time.time() - start_time))
 
     return
 
@@ -157,7 +158,7 @@ def _run(cfg):
     train_dataset = pipeline.get_train_dataset()
     assert isinstance(train_dataset, tf.data.Dataset)
 
-    train_summary_writer = tf.summary.create_file_writer(cfg.tb_dir)
+    train_summary_writer = tf.summary.create_file_writer(cfg.dir_tb)
 
     with train_summary_writer.as_default():
         tf.summary.experimental.set_step(0)  # Set step for summaries
@@ -178,14 +179,19 @@ def _configure_session():
     return tf.ConfigProto(allow_soft_placement=True,
                           gpu_options=gpu_config)
 
+def _get_config(args):
+    cfg = EasyDict(vars(args))
+    cfg.dir_repo = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    cfg.dir_tb = os.path.join(cfg.log_dir, time.strftime("%Y-%m-%d_%H-%M-%S"))  # Tensorboard directory
+    cfg.dir_ckpt = os.path.join(cfg.dir_repo, 'checkpoints')
+    return cfg
 
 def run(args=None):
     args = arg_parsing.ArgParser().parse_args(args)
+    cfg = _get_config(args)
 
-    cfg = EasyDict(vars(args))
-    os.makedirs(args.log_dir, exist_ok=True)  # create directory if it doesn't exist
-    cfg.tb_dir = os.path.join(cfg.log_dir, time.strftime("%Y-%m-%d_%H-%M-%S"))  # Tensorboard directory
-
+    os.makedirs(cfg.log_dir, exist_ok=True)  # create directory if it doesn't exist
+    os.makedirs(cfg.dir_ckpt, exist_ok=True)  # create directory if it doesn't exist
     _run(cfg)
 
 

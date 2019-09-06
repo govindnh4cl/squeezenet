@@ -31,12 +31,11 @@ def _train_tf(cfg, network, train_dataset):
                                            max_to_keep=3)
 
     # Checkpoint restoration
-    ckpt.restore(ckpt_mngr.latest_checkpoint)
+    ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
     if ckpt_mngr.latest_checkpoint:
-        print('Restoring checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
-        ckpt.restore(ckpt_mngr.latest_checkpoint)
+        print('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
     else:
-        print('No checkpoint found. Initializing from scratch.')
+        print('No checkpoint found. Starting from scratch.')
 
     @tf.function  # For faster training speed
     def _train_step(nw, batch_train, opt):
@@ -95,7 +94,8 @@ def _train_tf(cfg, network, train_dataset):
             batch_counter += 1
 
         # Save checkpoint
-        if int(ckpt.ckpt_counter) % 1 == 0:
+        if int(ckpt.ckpt_counter) % 5 == 0:
+            ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
             ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
             save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
             print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s. Saved checkpoint at {:s}'.format(

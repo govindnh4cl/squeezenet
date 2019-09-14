@@ -1,7 +1,15 @@
+# Directories
 .idea
 __pycache__
+checkpoints
+logs
+models
+tensorboard
 
 # images
 *.jpg
 *.png
 *.jpeg
+
+
+

@@ -9,7 +9,9 @@ try:
     from squeezenet import inputs
     from squeezenet import networks
     from squeezenet import metrics
+    from squeezenet.config import get_config
 except ImportError as e:
+    # Temporarily disabling import error in any non-needed module
     print('Ignoring import error: {:s}'.format(str(e)))
     pass
 
@@ -167,14 +169,13 @@ def _run(cfg):
 
     with train_summary_writer.as_default():
         tf.summary.experimental.set_step(0)  # Set step for summaries
-        with tf.device('/GPU:0'):  # Make sure that we're using GPU
-            if 1:
-                _train_tf(cfg, network, train_dataset)
-            else:
-                '''Model Creation'''
-                model = network.get_keras_model()  # A keras model
-                model.summary()
-                _train_keras(cfg, model, train_dataset)
+        if 1:
+            _train_tf(cfg, network, train_dataset)
+        else:
+            '''Model Creation'''
+            model = network.get_keras_model()  # A keras model
+            model.summary()
+            _train_keras(cfg, model, train_dataset)
 
         print('Training complete')
 
@@ -184,20 +185,13 @@ def _configure_session():
     return tf.ConfigProto(allow_soft_placement=True,
                           gpu_options=gpu_config)
 
-def _get_config(args):
-    cfg = EasyDict(vars(args))
-    cfg.dir_repo = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-    cfg.dir_tb = os.path.join(cfg.log_dir, time.strftime("%Y-%m-%d_%H-%M-%S"))  # Tensorboard directory
-    cfg.dir_ckpt = os.path.join(cfg.dir_repo, 'checkpoints')
-    return cfg
 
 def run(args=None):
     args = arg_parsing.ArgParser().parse_args(args)
-    cfg = _get_config(args)
+    cfg = get_config(args)  # Get dictionary with configuration parameters
 
-    os.makedirs(cfg.log_dir, exist_ok=True)  # create directory if it doesn't exist
-    os.makedirs(cfg.dir_ckpt, exist_ok=True)  # create directory if it doesn't exist
-    _run(cfg)
+    with tf.device(cfg.device):
+        _run(cfg)
 
 
 

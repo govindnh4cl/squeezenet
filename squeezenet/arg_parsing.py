@@ -7,10 +7,6 @@ class ArgParser(object):
     def __init__(self):
         self.parser = self._create_parser()
 
-    def parse_args(self, args=None):
-        args = self.parser.parse_args(args)
-        return args
-
     @staticmethod
     def _create_parser():
         program_name = 'Squeezenet Training Program'
@@ -20,16 +16,18 @@ class ArgParser(object):
         parser.add_argument(
             '--model_dir',
             type=str,
-            required=True,
-            help='''Output directory for checkpoints.'''
+            help='''Directory for storing trained models.'''
         )
         parser.add_argument(
             '--log_dir',
             type=str,
-            default=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs')),
             help='''Directory for logs'''
         )
-
+        parser.add_argument(
+            '--ckpt_dir',
+            type=str,
+            help='''Directory for holding checkpoints'''
+        )
         parser.add_argument(
             '--dataset',
             type=str,
@@ -52,12 +50,20 @@ class ArgParser(object):
             help='''Number of classes (unique labels) in the dataset.
                     Ignored if using CIFAR network version.'''
         )
+
         parser.add_argument(
-            '--num_gpus',
-            default=1,
-            type=int,
-            required=True,
+            '--device',
+            default='gpu',
+            type=str,
+            choices=['cpu', 'gpu'],
+            help='Whether to use CPU/GPU'
         )
+        # parser.add_argument(
+        #     '--num_gpus',
+        #     default=1,
+        #     type=int,
+        #     help='GPU count to use. Only used if --device is "gpu"'
+        # )
         parser.add_argument(
             '--batch_size',
             type=int,
@@ -126,3 +132,12 @@ class ArgParser(object):
         #     type=int
         # )
         return parser
+
+    def parse_args(self, args=None):
+        args = self.parser.parse_args(args)
+
+        # Check bad parameter specification
+        if args.device != 'gpu' and args.num_gpus:
+            self.parser.error('--num_gpus can only be set when --device is "gpu".')
+
+        return args

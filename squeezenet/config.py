@@ -1,6 +1,7 @@
 import os
 import time
 from easydict import EasyDict
+import tensorflow as tf
 
 
 def _set_directories(args, cfg):
@@ -52,6 +53,15 @@ def _set_device(args, cfg):
     """
     if args.device == 'gpu':
         cfg.device = '/gpu:0'  # Currently only support single GPU mode
+
+        cfg.allow_memory_growth = (args.allow_memory_growth == 1)
+        if cfg.allow_memory_growth:
+            list_gpus = tf.config.experimental.list_physical_devices('GPU')
+            if list_gpus:
+                for gpu in list_gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+            else:
+                raise Exception("tf.config.experimental.list_physical_devices('GPU') returned empty list.")
     elif args.device == 'cpu':
         cfg.device = '/cpu:0'
     else:

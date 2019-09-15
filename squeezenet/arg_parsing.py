@@ -50,13 +50,19 @@ class ArgParser(object):
             help='''Number of classes (unique labels) in the dataset.
                     Ignored if using CIFAR network version.'''
         )
-
         parser.add_argument(
             '--device',
             default='gpu',
             type=str,
             choices=['cpu', 'gpu'],
             help='Whether to use CPU/GPU'
+        )
+        parser.add_argument(
+            '--allow_memory_growth',
+            default=1,
+            type=int,
+            choices=[0, 1],
+            help='If 1, then allocates memory on need basis'
         )
         # parser.add_argument(
         #     '--num_gpus',
@@ -139,5 +145,8 @@ class ArgParser(object):
         # Check bad parameter specification
         if args.device != 'gpu' and args.num_gpus:
             self.parser.error('--num_gpus can only be set when --device is "gpu".')
+
+        if args.device != 'gpu' and args.allow_memory_growth:
+            self.parser.error('--allow_memory_growth can only be set when --device is "gpu".')
 
         return args

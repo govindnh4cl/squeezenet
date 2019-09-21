@@ -1,25 +1,16 @@
-import os
 import time
-from easydict import EasyDict
-import numpy as np
 import tensorflow as tf
 
-try:
-    from squeezenet import arg_parsing
-    from squeezenet import inputs
-    from squeezenet import networks
-    from squeezenet import metrics
-    from squeezenet.config import get_config
-except ImportError as e:
-    # Temporarily disabling import error in any non-needed module
-    print('Ignoring import error: {:s}'.format(str(e)))
-    pass
-
-logger = tf.get_logger()
+from my_logger import get_logger
+from squeezenet import arg_parsing
+from squeezenet import inputs
+from squeezenet import networks
+from squeezenet.config import get_config
 
 
 def _train_tf(cfg, network, train_dataset):
-    print('Training with Tensorflow API')
+    logger = get_logger()
+    logger.info('Training with Tensorflow API')
     loss_fn = tf.keras.losses.CategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam()
 
@@ -36,10 +27,10 @@ def _train_tf(cfg, network, train_dataset):
 
     if ckpt_mngr.latest_checkpoint:
         ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
-        print('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
+        logger.info('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
     else:
         ckpt_status = None
-        print('No checkpoint found. Starting from scratch.')
+        logger.info('No checkpoint found. Starting from scratch.')
 
     @tf.function  # For faster training speed
     def _train_step(nw, batch_train, opt):
@@ -105,13 +96,13 @@ def _train_tf(cfg, network, train_dataset):
         if int(ckpt.ckpt_counter) % 5 == 0:
             ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
             save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
-            print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s. Saved checkpoint at {:s}'.format(
+            logger.info('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s. Saved checkpoint at {:s}'.format(
                 epoch_idx,
                 running_loss.result(),
                 time.time() - start_time,
                 save_path))
         else:
-            print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
+            logger.info('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
                 epoch_idx,
                 running_loss.result(),
                 time.time() - start_time))
@@ -120,7 +111,8 @@ def _train_tf(cfg, network, train_dataset):
 
 
 def _train_keras(cfg, model, train_dataset):
-    print('Training with keras API')
+    logger = get_logger()
+    logger.info('Training with keras API')
     loss_fn = tf.keras.losses.CategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam()
 
@@ -146,7 +138,7 @@ def _train_keras(cfg, model, train_dataset):
 
             batch_counter += 1
 
-        print('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
+        logger.info('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
             epoch_idx,
             running_loss.result(),
             time.time() - start_time))
@@ -155,6 +147,7 @@ def _train_keras(cfg, model, train_dataset):
 
 
 def _run(cfg):
+    logger = get_logger()
     # TODO: Make sure all tensors are created on the GPU
 
     network = networks.catalogue[cfg.network](cfg)
@@ -177,7 +170,7 @@ def _run(cfg):
             model.summary()
             _train_keras(cfg, model, train_dataset)
 
-        print('Training complete')
+        logger.info('Training complete')
 
 
 def _configure_session():
@@ -187,6 +180,7 @@ def _configure_session():
 
 
 def run(args=None):
+    logger = get_logger()
     args = arg_parsing.ArgParser().parse_args(args)
     cfg = get_config(args)  # Get dictionary with configuration parameters
 

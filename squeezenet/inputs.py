@@ -3,21 +3,21 @@ from tensorflow.python import keras
 import tensorflow as tf
 from tensorflow import data
 
-
-logger = tf.get_logger()
+from my_logger import get_logger
 
 
 class Pipeline(object):
     def __init__(self, cfg):
         self.cfg = cfg
+        self.logger = get_logger()
         self.batch_size = self.cfg.batch_size
 
         with tf.device('/cpu:0'):  # The dataset operations are unable to use gpu
             # Load all images from CIFAR10
-            print('Getting input data... ')
+            self.logger.info('Getting input data... ')
             (self.x_train, self.y_train), (self.x_test, self.y_test) = \
                 keras.datasets.cifar10.load_data()
-            print('Got all input data.')
+            self.logger.info('Got all input data.')
 
             # TODO: Apply pre-processing
             self.x_train = tf.cast(self.x_train, tf.float32)
@@ -56,12 +56,12 @@ class Pipeline(object):
             self.val_dataset = self.val_dataset.batch(self.batch_size, drop_remainder=False)
             self.test_dataset = self.test_dataset.batch(self.batch_size, drop_remainder=False)
 
-            print('Count samples: Train={:d}({:.1f}%) Validation={:d}({:.1f}%) Test={:d}({:.1f}%)'.format(
+            self.logger.info('Count samples: Train={:d}({:.1f}%) Validation={:d}({:.1f}%) Test={:d}({:.1f}%)'.format(
                 self.count_train, 100 * self.count_train / self.count_total,
                 self.count_val, 100 * self.count_val / self.count_total,
                 self.count_test, 100 * self.count_test / self.count_total))
 
-            print('Batch size: {:d} Steps: Train={:d} Validation={:d} Test={:d}'.format(
+            self.logger.info('Batch size: {:d} Steps: Train={:d} Validation={:d} Test={:d}'.format(
                   self.batch_size,
                   np.round(self.count_train/self.batch_size).astype(int),
                   np.round(self.count_val/self.batch_size).astype(int),

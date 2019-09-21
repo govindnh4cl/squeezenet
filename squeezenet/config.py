@@ -3,8 +3,11 @@ import time
 from easydict import EasyDict
 import tensorflow as tf
 
+from my_logger import get_logger
+
 
 def _set_directories(args, cfg):
+    logger = get_logger()
     """
     Adds directory paths in cfg and creates them if directory doesn't exist
     :param args: An Argparse object
@@ -19,7 +22,7 @@ def _set_directories(args, cfg):
     else:
         cfg.dir_model = os.path.join(cfg.dir_repo, 'models')
     os.makedirs(cfg.dir_model, exist_ok=True)
-    print('Model save directory: {:s}'.format(cfg.dir_model))
+    logger.debug('Model save directory: {:s}'.format(cfg.dir_model))
 
     # Directory for storing log files
     if args.log_dir:
@@ -30,8 +33,8 @@ def _set_directories(args, cfg):
     dir_tb_logs = os.path.join(cfg.dir_log, 'tensorboard')
     os.makedirs(dir_tb_logs, exist_ok=True)
     cfg.dir_tb = os.path.join(dir_tb_logs, time.strftime("%Y-%m-%d_%H-%M-%S"))  # Tensorboard directory
-    print('Log dump directory: {:s}'.format(cfg.dir_log))
-    print('Tensorboard directory: {:s}'.format(cfg.dir_tb))
+    logger.debug('Log dump directory: {:s}'.format(cfg.dir_log))
+    logger.debug('Tensorboard directory: {:s}'.format(cfg.dir_tb))
 
     # Directory for storing checkpoints
     if args.ckpt_dir:
@@ -39,7 +42,7 @@ def _set_directories(args, cfg):
     else:
         cfg.dir_ckpt = os.path.join(cfg.dir_repo, 'checkpoints')
     os.makedirs(cfg.dir_ckpt, exist_ok=True)
-    print('Checkpoint directory: {:s}'.format(cfg.dir_ckpt))
+    logger.debug('Checkpoint directory: {:s}'.format(cfg.dir_ckpt))
 
     return
 

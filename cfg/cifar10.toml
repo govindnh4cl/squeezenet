@@ -1,0 +1,55 @@
+title = "Config file for running model with cifar10"
+
+
+[misc]
+    seed = 1337                     # Set seed for reproducibility
+    phase = 'train'                 # Phase: 'train' or 'test'
+
+
+[hardware]
+    device = 'gpu'                  # Select the device to be used. Supported: 'gpu', 'cpu'
+    num_gpu = 1                     # Count of GPUs to use. Supported: 1. Ignored if device is 'cpu'
+    allow_memory_growth = true      # If true, then allocates memory on need basis. Ignored if device is 'cpu'
+
+
+[dataset]
+    dataset = 'cifar10'             # Dataset to use. Supported: 'cifar10', 'imagenet'
+
+
+[directories]
+    # Paths can either be absolute or relative to repository directory
+    dir_model = 'models'                # Directory to store final trained models
+    dir_log = 'logs'                    # Directory to store log files
+    dir_tb_home = 'logs/tensorboard'    # Directory to store tensorboard logs
+    dir_ckpt = 'checkpoints'            # Directory to store training checkpoints
+
+
+# Training phase
+# Only used if misc.phase is 'train'
+[train]
+    batch_size = 64
+    num_epochs = 1              # Count epochs to further train for
+    checkpoint_interval = 10    #
+    keep_n_checkpoints = 3      # Count of checkpoints to keep
+
+
+# Validation phase parameters
+# Only used if misc.phase is 'train'
+[validation]
+    enable = false              # Enables or disables validation set evaluation during training
+    # parameters below are ignored if enable is false
+    batch_size = -1             # If -1, then uses the same batch_size as in training
+    validation_interval = 10    # After how many epochs should validation set be evaluated
+
+
+# Test phase parameters
+# Only used if misc.phase is 'test'
+[test]
+    batch_size = -1             # If -1, then uses the same batch_size as in training
+
+
+[model]
+    batch_norm_decay = 0.9
+    weight_decay = 0.0
+
+

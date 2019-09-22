@@ -8,6 +8,8 @@ from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D, MaxPooling2
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.models import Model
 
+from my_logger import get_logger
+
 
 class FireModule(tf.keras.Model):
     def __init__(self, squeeze_depth, expand_depth, batch_norm_decay, weight_decay):
@@ -65,20 +67,23 @@ class Squeezenet(ABC):
     """
     Base class for Squeezenet architectures tuned for different datasets (image resolution)
     """
-    def __init__(self, args):
-        self._num_classes = args.num_classes
-        self._weight_decay = args.weight_decay
-        self._batch_norm_decay = args.batch_norm_decay
+    def __init__(self, cfg, name):
+        self.model_name = name
+        self.logger = get_logger()
+        self.logger.info('Using model: {:s}'.format(self.model_name))
+
+        self._num_classes = cfg.dataset.num_classes
+        self._weight_decay = cfg.model.weight_decay
+        self._batch_norm_decay = cfg.model.batch_norm_decay
         self._input_shape = None
+
         return
 
 
 class Squeezenet_Imagenet(Squeezenet):
     """Original squeezenet architecture for 224x224 images."""
-    name = 'squeezenet'
-
-    def __init__(self, args):
-        Squeezenet.__init__(self, args)
+    def __init__(self, cfg):
+        Squeezenet.__init__(self, cfg, 'squeezenet_imagenet')
         self._input_shape = (3, 224, 224)
 
     def _define(self, num_classes=1000):
@@ -110,10 +115,8 @@ class Squeezenet_Imagenet(Squeezenet):
 
 class Squeezenet_CIFAR(Squeezenet, tf.keras.Model):
     """Modified version of squeezenet for CIFAR images"""
-    name = 'squeezenet_cifar'
-
-    def __init__(self, args):
-        Squeezenet.__init__(self, args)
+    def __init__(self, cfg):
+        Squeezenet.__init__(self, cfg, 'squeezenet_cifar')
         tf.keras.Model.__init__(self)
         self._input_shape = (3, 32, 32)
 

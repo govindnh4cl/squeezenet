@@ -2,13 +2,14 @@ import time
 import tensorflow as tf
 
 from my_logger import get_logger
-from squeezenet import arg_parsing
+from squeezenet.arg_parsing import parse_args
 from squeezenet import inputs
 from squeezenet import networks
 from squeezenet.config import get_config
+from squeezenet.networks.squeezenet import Squeezenet_CIFAR, Squeezenet_Imagenet
 
 
-def _train_tf(cfg, network, train_dataset):
+def _train_tf(cfg, net, train_dataset):
     logger = get_logger()
     logger.info('Training with Tensorflow API')
     loss_fn = tf.keras.losses.CategoricalCrossentropy()
@@ -17,14 +18,13 @@ def _train_tf(cfg, network, train_dataset):
     # Model checkpoints
     ckpt_counter = tf.Variable(initial_value=0, trainable=False, dtype=tf.int64)
     ckpt = tf.train.Checkpoint(ckpt_counter=ckpt_counter,
-                               optimizer=optimizer, model=network)
+                               optimizer=optimizer, model=net)
 
     ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
-                                           directory=cfg.dir_ckpt,
+                                           directory=cfg.directories.dir_ckpt,
                                            max_to_keep=3)
 
     # Checkpoint restoration
-
     if ckpt_mngr.latest_checkpoint:
         ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
         logger.info('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
@@ -40,27 +40,28 @@ def _train_tf(cfg, network, train_dataset):
             batch_y_pred = nw(batch_x, training=True)  # Run prediction on batch
             loss_batch = loss_fn(batch_y, batch_y_pred)  # compute loss
 
-        grads = tape.gradient(loss_batch, network.trainable_variables)  # compute gradient
-        opt.apply_gradients(zip(grads, network.trainable_variables))  # Update weights
+        grads = tape.gradient(loss_batch, net.trainable_variables)  # compute gradient
+        opt.apply_gradients(zip(grads, net.trainable_variables))  # Update weights
 
         return loss_batch
 
     '''Main Loop'''
-    batch_counter = tf.zeros(1, dtype=tf.int64)
+    batch_counter = tf.zeros(1, dtype=tf.int64)  # Overall batch-counter to serve as step for Tensorboard
     # Loop over epochs
-    for epoch_idx in range(cfg.max_train_epochs):
+    for epoch_idx in range(cfg.train.num_epochs):
         start_time = time.time()
-        running_loss = tf.keras.metrics.Mean()  # Running loss per sample
+        # Running average loss per sample during this epoch. Needed for printing loss during training
+        running_loss = tf.keras.metrics.Mean()
 
         # Loop over batches in the epoch
         for batch_idx, train_batch in enumerate(train_dataset):
-            tf.summary.experimental.set_step(batch_counter)  # Set step. Needed for summaries
+            tf.summary.experimental.set_step(batch_counter)  # Set step. Needed for summaries in Tensorboard
 
-            batch_loss = _train_step(network, train_batch, optimizer)  # batch_loss is a Tensor scalar
+            batch_loss = _train_step(net, train_batch, optimizer)  # Tensor scalar loss for this batch
 
-            running_loss.update_state(batch_loss)
-            tf.summary.scalar('Train loss', batch_loss)
-            tf.summary.scalar('Train running-loss', running_loss.result())
+            running_loss.update_state(batch_loss)  # Update this batch's loss to
+            tf.summary.scalar('Train loss', batch_loss)  # Log to tensorboard
+            tf.summary.scalar('Train running-loss', running_loss.result())  # Log to tensorboard
             # print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
 
             # sess.run(train_metrics.reset_op)
@@ -86,7 +87,7 @@ def _train_tf(cfg, network, train_dataset):
             #     # eval_writer.add_summary(summary, train_step)
             #     sess.run(validation_init_op)  # Reinitialize dataset and metrics
 
-            batch_counter += 1
+            batch_counter += 1  # Increment overall-batch-counter
 
         # Validate the checkpoint loading
         if ckpt_status is not None:
@@ -121,7 +122,7 @@ def _train_keras(cfg, model, train_dataset):
     '''Main Loop'''
     batch_counter = 0
     # Loop over epochs
-    for epoch_idx in range(cfg.max_train_epochs):
+    for epoch_idx in range(cfg.train.num_epochs):
         start_time = time.time()
         running_loss = tf.keras.metrics.Mean()  # Running loss per sample
         # Loop over batches in the epoch
@@ -146,11 +147,23 @@ def _train_keras(cfg, model, train_dataset):
     return
 
 
+def _get_network(cfg):
+    """
+    Network factory
+    :param cfg:
+    :return:
+    """
+    if cfg.dataset.dataset == 'imagenet':
+        net = Squeezenet_Imagenet(cfg)
+    elif cfg.dataset.dataset == 'cifar10':
+        net = Squeezenet_CIFAR(cfg)
+
+    return net
+
+
 def _run(cfg):
     logger = get_logger()
-    # TODO: Make sure all tensors are created on the GPU
-
-    network = networks.catalogue[cfg.network](cfg)
+    net = _get_network(cfg)
 
     '''Inputs'''
     pipeline = inputs.Pipeline(cfg)  # Instantiate
@@ -158,33 +171,26 @@ def _run(cfg):
     train_dataset = pipeline.get_train_dataset()
     assert isinstance(train_dataset, tf.data.Dataset)
 
-    train_summary_writer = tf.summary.create_file_writer(cfg.dir_tb)
+    train_summary_writer = tf.summary.create_file_writer(cfg.directories.dir_tb)
 
     with train_summary_writer.as_default():
         tf.summary.experimental.set_step(0)  # Set step for summaries
         if 1:
-            _train_tf(cfg, network, train_dataset)
+            _train_tf(cfg, net, train_dataset)
         else:
             '''Model Creation'''
-            model = network.get_keras_model()  # A keras model
+            model = net.get_keras_model()  # A keras model
             model.summary()
             _train_keras(cfg, model, train_dataset)
 
         logger.info('Training complete')
 
 
-def _configure_session():
-    gpu_config = tf.GPUOptions(per_process_gpu_memory_fraction=.8)
-    return tf.ConfigProto(allow_soft_placement=True,
-                          gpu_options=gpu_config)
-
-
-def run(args=None):
-    logger = get_logger()
-    args = arg_parsing.ArgParser().parse_args(args)
+def run():
+    args = parse_args()
     cfg = get_config(args)  # Get dictionary with configuration parameters
 
-    with tf.device(cfg.device):
+    with tf.device(cfg.hardware.device):  # This does explicit device selection: cpu or gpu
         _run(cfg)
 
 

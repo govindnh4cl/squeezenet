@@ -25,7 +25,7 @@ title = "Config file for running model with cifar10"
 
 
 # Training phase parameters
-# Only used if misc.mode is 'train'
+# ----- Only used if misc.mode is 'train' -----
 [train]
     batch_size = 64
     num_epochs = 2              # Count epochs to further train for
@@ -34,9 +34,9 @@ title = "Config file for running model with cifar10"
 
 
 # Validation phase parameters
-# Only used if misc.mode is 'train'
+# ----- Only used if misc.mode is 'train' -----
 [validation]
-    enable = false              # Enables or disables validation set evaluation during training
+    enable = true              # Enables or disables validation set evaluation during training
 
     # ----- parameters below are ignored if enable is false -----
 
@@ -45,7 +45,7 @@ title = "Config file for running model with cifar10"
 
 
 # Eval phase parameters
-# Only used if misc.mode is 'eval'
+# ----- Only used if misc.mode is 'eval' -------
 [eval]
     portion = 'test'            # Evaluates the model's performance on specified portion
                                 # Portion of entire dataset to use. Supported: 'train', 'val', 'test'

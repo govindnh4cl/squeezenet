@@ -67,7 +67,7 @@ class Pipeline(object):
                     # Convert into batched datasets
                     self.val_dataset = self.val_dataset.batch(self.cfg.dataset.val.batch_size, drop_remainder=False)
                     self.logger.info('Validation batch size: {:d} \tCount steps per epoch: {:d}'.format(
-                        self.cfg.dataset.train.batch_size, np.round(self.count_train/self.cfg.dataset.train.batch_size).astype(int)))
+                        self.cfg.dataset.val.batch_size, np.round(self.count_val/self.cfg.dataset.val.batch_size).astype(int)))
                 else:
                     self.val_dataset = None
                     self.count_val = 0

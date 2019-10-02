@@ -4,13 +4,24 @@ with warnings.catch_warnings():
     import tensorflow as tf
 
 from my_logger import setup_logger, get_logger
-from squeezenet.train_squeezenet import run
+from squeezenet.arg_parsing import parse_args
+from squeezenet.train_squeezenet import DevelopSqueezenet
 
-if __name__ == '__main__':
+
+def main():
     setup_logger(log_option=2)
     logger = get_logger()
 
+    args = parse_args()
+    dev = DevelopSqueezenet(args)
+
     try:
-        run()
+        dev.run()
     except Exception as e:
         logger.exception(str(e))
+
+    return
+
+
+if __name__ == '__main__':
+    main()

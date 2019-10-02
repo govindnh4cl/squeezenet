@@ -3,7 +3,7 @@ title = "Config file for running model with cifar10"
 
 [misc]
     seed = 1337                     # Set seed for reproducibility
-    phase = 'train'                 # Phase: 'train' or 'test'
+    mode = 'train'                  # Mode: 'train' or 'eval'
 
 
 [hardware]
@@ -24,28 +24,33 @@ title = "Config file for running model with cifar10"
     dir_ckpt = 'checkpoints'            # Directory to store training checkpoints
 
 
-# Training phase
-# Only used if misc.phase is 'train'
+# Training phase parameters
+# Only used if misc.mode is 'train'
 [train]
     batch_size = 64
-    num_epochs = 1              # Count epochs to further train for
+    num_epochs = 2              # Count epochs to further train for
     checkpoint_interval = 10    #
     keep_n_checkpoints = 3      # Count of checkpoints to keep
 
 
 # Validation phase parameters
-# Only used if misc.phase is 'train'
+# Only used if misc.mode is 'train'
 [validation]
     enable = false              # Enables or disables validation set evaluation during training
-    # parameters below are ignored if enable is false
+
+    # ----- parameters below are ignored if enable is false -----
+
     batch_size = -1             # If -1, then uses the same batch_size as in training
     validation_interval = 10    # After how many epochs should validation set be evaluated
 
 
-# Test phase parameters
-# Only used if misc.phase is 'test'
-[test]
-    batch_size = -1             # If -1, then uses the same batch_size as in training
+# Eval phase parameters
+# Only used if misc.mode is 'eval'
+[eval]
+    portion = 'test'            # Evaluates the model's performance on specified portion
+                                # Portion of entire dataset to use. Supported: 'train', 'val', 'test'
+    batch_size = 64
+
 
 
 [model]

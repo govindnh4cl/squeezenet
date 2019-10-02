@@ -18,100 +18,83 @@ class Pipeline(object):
         Sets up Tensorflow dataset objects
         :return: None. Creates objects within class
         """
-        if 'cpu' in self.cfg.hardware.device:
+        if 'gpu' in self.cfg.hardware.device:
             self.logger.warning('Holding all dataset operations on CPU as I '
                                 'am not able set them on GPU at present due to unknown reasons')
 
-        with tf.device('/cpu:0'):  # The dataset operations are unable to use gpu
+        with tf.device('/cpu:0'):  # This forces dataset operation on CPU
             # Load all images from CIFAR10
             self.logger.info('Getting input data... ')
-            (self.x_train, self.y_train), (self.x_test, self.y_test) = \
-                keras.datasets.cifar10.load_data()
+            (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
             self.logger.info('Got all input data.')
 
-            if self.cfg.train.enable is True:
-                self.train_batch_size = self.cfg.train.batch_size
-                self.x_train = tf.cast(self.x_train, tf.float32)
+            if (self.cfg.dataset.train.enable or self.cfg.dataset.val.enable) is True:
+                x_train = tf.cast(x_train, tf.float32)
                 # TODO: Apply pre-processing
                 # Convert to channel-first
-                self.x_train = tf.transpose(self.x_train, [0, 3, 1, 2])
+                x_train = tf.transpose(x_train, [0, 3, 1, 2])
                 # Convert labels to one-hot
-                self.y_train = tf.one_hot(indices=self.y_train, depth=10, axis=1, on_value=1, off_value=0,
-                                          dtype=tf.int32)
+                y_train = tf.one_hot(indices=y_train, depth=10, axis=1, on_value=1, off_value=0, dtype=tf.int32)
 
                 # Change shape from (batch_size, num_classes, 1) to (batch_size, num_classes)
-                self.y_train = tf.squeeze(self.y_train, axis=[2])
+                y_train = tf.squeeze(y_train, axis=[2])
 
-                if self.cfg.validation.enable is True:
-                    self.val_batch_size = self.cfg.validation.batch_size
-                    count_train_val = len(self.x_train)
-                    self.count_train = int(count_train_val * 0.9)
-                    self.count_val = count_train_val - self.count_train
-                    self.train_val_datset = tf.data.Dataset.from_tensor_slices((self.x_train, self.y_train))  # Init from data
-                    self.train_val_datset = self.train_val_datset.shuffle(buffer_size=count_train_val)  # Shuffle
+                count_train_val = len(x_train)
+                self.count_train = int(count_train_val * 0.9)
+                self.count_val = count_train_val - self.count_train
+                self.train_val_datset = tf.data.Dataset.from_tensor_slices((x_train, y_train))  # Init from data
+                self.train_val_datset = self.train_val_datset.shuffle(buffer_size=count_train_val)  # Shuffle
+
+                if self.cfg.dataset.train.enable is True:
                     self.train_dataset = self.train_val_datset.take(self.count_train)  # Get just the train set
+
+                    # Convert image dtype to float32
+                    # TODO: I think this is unnecessary
+                    self.train_dataset = self.train_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
+                    # Convert into batched datasets
+                    self.train_dataset = self.train_dataset.batch(self.cfg.dataset.train.batch_size, drop_remainder=False)
+                    self.logger.info('Training batch size: {:d} \tCount steps per epoch: {:d}'.format(
+                        self.cfg.dataset.train.batch_size, np.round(self.count_train / self.cfg.dataset.train.batch_size).astype(int)))
+                else:
+                    self.train_dataset = None
+                    self.count_train = 0
+
+                if self.cfg.dataset.val.enable is True:
                     self.val_dataset = self.train_val_datset.skip(self.count_train)  # Get just the validation set
-                else:  # Training but no validation
-                    self.count_train = len(self.x_train)
-                    self.train_dataset = tf.data.Dataset.from_tensor_slices((self.x_train, self.y_train))  # Init from data
 
-                # Convert image dtype to float32
-                # TODO: I think this is unnecessary
-                self.train_dataset = self.train_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
-                # Convert into batched datasets
-                self.train_dataset = self.train_dataset.batch(self.train_batch_size, drop_remainder=False)
-                self.logger.info('Training batch size: {:d} \tCount steps: {:d}'.format(
-                    self.train_batch_size, np.round(self.count_train / self.train_batch_size).astype(int)))
-
-                if self.cfg.validation.enable is True:
                     # Convert image dtype to float32
                     self.val_dataset = self.val_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
                     # Convert into batched datasets
-                    self.val_dataset = self.val_dataset.batch(self.val_batch_size, drop_remainder=False)
-                    self.logger.info('Validation batch size: {:d} \tCount steps: {:d}'.format(
-                        self.train_batch_size, np.round(self.count_train/self.train_batch_size).astype(int)))
-                else:  # Training but no validation
+                    self.val_dataset = self.val_dataset.batch(self.cfg.dataset.val.batch_size, drop_remainder=False)
+                    self.logger.info('Validation batch size: {:d} \tCount steps per epoch: {:d}'.format(
+                        self.cfg.dataset.train.batch_size, np.round(self.count_train/self.cfg.dataset.train.batch_size).astype(int)))
+                else:
                     self.val_dataset = None
-                    self.count_val = None
-                    self.val_batch_size = None
-            else:  # No training
-                self.x_train = None
-                self.y_train = None
-                self.train_dataset = None
-                self.count_train = None
-                self.train_batch_size = None
+                    self.count_val = 0
 
-                self.val_dataset = None
-                self.count_val = None
-                self.val_batch_size = None
-
-            if self.cfg.test.enable is True:
-                self.test_batch_size = self.cfg.test_batch_size
-                self.x_test = tf.cast(self.x_test, tf.float32)
+            if self.cfg.dataset.test.enable is True:
+                self.cfg.dataset.test.batch_size = self.cfg.dataset.test.batch_size
+                x_test = tf.cast(x_test, tf.float32)
                 # Convert to channel-first
-                self.x_test = tf.transpose(self.x_test, [0, 3, 1, 2])
+                x_test = tf.transpose(x_test, [0, 3, 1, 2])
                 # Convert labels to one-hot
-                self.y_test = tf.one_hot(indices=self.y_test, depth=10, axis=1, on_value=1, off_value=0,
-                                         dtype=tf.int32)
+                y_test = tf.one_hot(indices=y_test, depth=10, axis=1, on_value=1, off_value=0, dtype=tf.int32)
 
                 # Change shape from (batch_size, num_classes, 1) to (batch_size, num_classes)
-                self.y_test = tf.squeeze(self.y_test, axis=[2])
+                y_test = tf.squeeze(y_test, axis=[2])
 
-                self.count_test = len(self.x_test)
-                self.test_dataset = tf.data.Dataset.from_tensor_slices((self.x_test, self.y_test))  # Init from data
+                self.count_test = len(x_test)
+                self.test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))  # Init from data
                 self.test_dataset = self.test_dataset.shuffle(buffer_size=self.count_test)  # Shuffle
                 # Convert image dtype to float32
                 self.test_dataset = self.test_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
                 # Convert into batched datasets
-                self.test_dataset = self.test_dataset.batch(self.test_batch_size, drop_remainder=False)
-                self.logger.info('Test batch size: {:d} \tCount steps: {:d}'.format(
-                    self.test_batch_size, np.round(self.count_test / self.test_batch_size).astype(int)))
+                self.test_dataset = self.test_dataset.batch(self.cfg.dataset.test.batch_size, drop_remainder=False)
+                self.logger.info('Test batch size: {:d} \tCount steps per epoch: {:d}'.format(
+                    self.cfg.dataset.test.batch_size, np.round(self.count_test / self.cfg.dataset.test.batch_size).astype(int)))
             else:  # No test phase
-                self.x_test = None
-                self.y_test = None
                 self.test_dataset = None
-                self.count_test = None
-                self.test_batch_size = None
+                self.count_test = 0
 
         return
 

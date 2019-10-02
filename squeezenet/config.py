@@ -90,30 +90,50 @@ def _set_dataset_params(cfg):
     elif cfg.dataset.dataset == 'imagenet':
         cfg.dataset.num_classes = 1000
 
-    if cfg.misc.phase not in ('train', 'test'):
-        raise ValueError('Unsupported misc.phase: {:}'.format(cfg.misc.phase))
-    elif cfg.misc.phase == 'train':
-        cfg.train.enable = True                         # Enable train
-        assert type(cfg.validation.enable) is bool      # Take from config file
-        cfg.test.enable = False                         # Disable test
-    elif cfg.misc.phase == 'test':
-        cfg.train.enable = False                        # Disable train
-        cfg.validation.enable = False                   # Disable validation
-        cfg.test.enable = True                          # Enable test
+    # Hold parameters for portions of datasets
+    cfg.dataset.train = EasyDict()
+    cfg.dataset.val = EasyDict()
+    cfg.dataset.test = EasyDict()
 
-    # If value is -1 in config, then use the batch_size from training configuration
-    if cfg.validation.enable and cfg.validation.batch_size == -1:
-        cfg.validation.batch_size = cfg.train.batch_size
-    if cfg.test.enable and cfg.test.batch_size == -1:
-        cfg.test.batch_size = cfg.train.batch_size
+    # Enable/Disable loading of certain portion of dataset based on config file
+    if cfg.misc.mode not in ('train', 'eval'):
+        raise ValueError('Unsupported misc.mode: {:}'.format(cfg.misc.mode))
+    elif cfg.misc.mode == 'train':
+        cfg.dataset.train.enable = True                 # Enable loading of train set
+        assert type(cfg.validation.enable) is bool      # Sanity check
+        cfg.dataset.val.enable = cfg.validation.enable  # Enable/Disable loading of val set based on config
+        cfg.dataset.test.enable = False                 # Disable loading of test set
+    elif cfg.misc.mode == 'eval':
+        assert cfg.eval.portion in ('train', 'val', 'test')     # Sanity check
+        cfg.dataset.train.enable = (cfg.eval.portion == 'train')
+        cfg.dataset.val.enable = (cfg.eval.portion == 'val')
+        cfg.dataset.test.enable = (cfg.eval.portion == 'test')
 
-    # Error check on batch_size
-    if cfg.train.enable and cfg.train.batch_size % 2 != 0:
-        raise ValueError('Train batch size {:} is not multiple of 2.'.format(cfg.train.batch_size))
-    if cfg.validation.enable and cfg.validation.batch_size % 2 != 0:
-        raise ValueError('Validation batch size {:} is not multiple of 2.'.format(cfg.validation.batch_size))
-    if cfg.test.enable and cfg.test.batch_size % 2 != 0:
-        raise ValueError('Test batch size {:} is not multiple of 2.'.format(cfg.test.batch_size))
+    # Set batch_size parameters for dataset portions
+    # FYI: we store batch_size in two places for convenience:
+    #   cfg.dataset.<phase>.batch_size
+    #   cfg.<phase>.batch_size
+    # where <phase> is train, validation or test
+    if cfg.misc.mode == 'train':
+        if cfg.dataset.train.enable:
+            cfg.dataset.train.batch_size = cfg.train.batch_size
+
+        if cfg.dataset.val.enable:
+            if cfg.validation.batch_size == -1:
+                # use the same batch_size as for training
+                cfg.validation.batch_size = cfg.train.batch_size
+                cfg.dataset.val.batch_size = cfg.train.batch_size
+            else:
+                cfg.dataset.val.batch_size = cfg.validation.batch_size
+    elif cfg.misc.mode == 'eval':
+        if cfg.dataset.train.enable:
+            cfg.dataset.train.batch_size = cfg.eval.batch_size
+
+        if cfg.dataset.val.enable:
+            cfg.dataset.val.batch_size = cfg.eval.batch_size
+
+        if cfg.dataset.test.enable:
+            cfg.dataset.test.batch_size = cfg.eval.batch_size
 
     return
 
@@ -131,7 +151,7 @@ def get_config(args):
 
     _set_directories(cfg)  # Set paths to all necessary directories
     _set_hardware(cfg)  # Set device to be used
-    _set_dataset_params(cfg)  # Set dataset and train/val/test phase related parameters
+    _set_dataset_params(cfg)  # Set dataset and train/val/test set related parameters
 
     return cfg
 

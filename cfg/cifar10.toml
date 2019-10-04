@@ -29,8 +29,8 @@ title = "Config file for running model with cifar10"
 [train]
     batch_size = 64
     num_epochs = 2              # Count epochs to further train for
-    checkpoint_interval = 10    #
-    keep_n_checkpoints = 3      # Count of checkpoints to keep
+    checkpoint_interval = 5     # Epoch interval after which checkpoint must be saved
+    keep_n_checkpoints = 1      # Count of checkpoints to keep
 
 
 # Validation phase parameters

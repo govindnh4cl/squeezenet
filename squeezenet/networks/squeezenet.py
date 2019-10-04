@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from abc import ABC, abstractmethod
+from abc import ABC
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D, MaxPooling2D, BatchNormalization, Activation
 from tensorflow.keras.regularizers import l2
@@ -63,11 +63,12 @@ class FireModule(tf.keras.Model):
         return tf.concat([e_out_0, e_out_1], 1)
 
 
-class Squeezenet(ABC):
+class Squeezenet(ABC, tf.keras.Model):
     """
     Base class for Squeezenet architectures tuned for different datasets (image resolution)
     """
     def __init__(self, cfg, name):
+        tf.keras.Model.__init__(self)
         self.model_name = name
         self.logger = get_logger()
         self.logger.info('Using model: {:s}'.format(self.model_name))
@@ -113,11 +114,10 @@ class Squeezenet_Imagenet(Squeezenet):
         return model
 
 
-class Squeezenet_CIFAR(Squeezenet, tf.keras.Model):
+class Squeezenet_CIFAR(Squeezenet):
     """Modified version of squeezenet for CIFAR images"""
     def __init__(self, cfg):
         Squeezenet.__init__(self, cfg, 'squeezenet_cifar')
-        tf.keras.Model.__init__(self)
         self._input_shape = (3, 32, 32)
 
         num_classes = 10
@@ -145,6 +145,7 @@ class Squeezenet_CIFAR(Squeezenet, tf.keras.Model):
         self.l_16 = Activation('softmax')
         return
 
+    @tf.function
     def call(self, batch_x, training=False):
         x = batch_x
 

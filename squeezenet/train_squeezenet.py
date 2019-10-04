@@ -97,8 +97,7 @@ class DevelopSqueezenet:
                 ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
 
             # Save checkpoint
-            if int(ckpt.ckpt_counter) % 5 == 0:
-                ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
+            if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
                 save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
                 logger.info('Epoch {:3d} Training Loss {:f} Time {:.1f}s. Saved checkpoint at {:s}'.format(
                     epoch_idx,
@@ -110,6 +109,7 @@ class DevelopSqueezenet:
                     epoch_idx,
                     running_loss.result(),
                     time.time() - start_time))
+            ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
 
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:

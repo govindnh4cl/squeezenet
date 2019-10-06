@@ -5,7 +5,7 @@ with warnings.catch_warnings():
 
 from my_logger import setup_logger, get_logger
 from squeezenet.arg_parsing import parse_args
-from squeezenet.train_squeezenet import DevelopSqueezenet
+from squeezenet.develop_squeezenet import DevelopSqueezenet
 
 
 def main():

@@ -28,11 +28,6 @@ class DevelopSqueezenet:
             else:
                 self.net = tf.saved_model.load(self.cfg.directories.dir_model)
 
-        # Some more quantities to store in the checkpoint
-        self.stateful_quantities = {
-            'val_loss': np.inf
-        }
-
         return
 
     @tf.function

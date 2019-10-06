@@ -30,7 +30,6 @@ class Pipeline(object):
 
             if (self.cfg.dataset.train.enable or self.cfg.dataset.val.enable) is True:
                 x_train = tf.cast(x_train, tf.float32)
-                # TODO: Apply pre-processing
                 # Convert to channel-first
                 x_train = tf.transpose(x_train, [0, 3, 1, 2])
                 # Convert labels to one-hot
@@ -53,6 +52,8 @@ class Pipeline(object):
                     self.train_dataset = self.train_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
                     # Convert into batched datasets
                     self.train_dataset = self.train_dataset.batch(self.cfg.dataset.train.batch_size, drop_remainder=False)
+                    # Image normalization
+                    self.train_dataset = self.train_dataset.map(lambda x, y: (tf.image.per_image_standardization(x), y))
                     self.logger.info('Training batch size: {:d} \tCount steps per epoch: {:d}'.format(
                         self.cfg.dataset.train.batch_size, np.round(self.count_train / self.cfg.dataset.train.batch_size).astype(int)))
                 else:
@@ -63,9 +64,12 @@ class Pipeline(object):
                     self.val_dataset = self.train_val_datset.skip(self.count_train)  # Get just the validation set
 
                     # Convert image dtype to float32
+                    # TODO: I think this is unnecessary
                     self.val_dataset = self.val_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
                     # Convert into batched datasets
                     self.val_dataset = self.val_dataset.batch(self.cfg.dataset.val.batch_size, drop_remainder=False)
+                    # Image normalization
+                    self.val_dataset = self.val_dataset.map(lambda x, y: (tf.image.per_image_standardization(x), y))
                     self.logger.info('Validation batch size: {:d} \tCount steps per epoch: {:d}'.format(
                         self.cfg.dataset.val.batch_size, np.round(self.count_val/self.cfg.dataset.val.batch_size).astype(int)))
                 else:
@@ -74,6 +78,8 @@ class Pipeline(object):
 
             if self.cfg.dataset.test.enable is True:
                 self.cfg.dataset.test.batch_size = self.cfg.dataset.test.batch_size
+                # Convert image dtype to float32
+                # TODO: I think this is unnecessary
                 x_test = tf.cast(x_test, tf.float32)
                 # Convert to channel-first
                 x_test = tf.transpose(x_test, [0, 3, 1, 2])
@@ -90,6 +96,8 @@ class Pipeline(object):
                 self.test_dataset = self.test_dataset.map(lambda x, y: (tf.cast(x, tf.float32), y))
                 # Convert into batched datasets
                 self.test_dataset = self.test_dataset.batch(self.cfg.dataset.test.batch_size, drop_remainder=False)
+                # Image normalization
+                self.test_dataset = self.test_dataset.map(lambda x, y: (tf.image.per_image_standardization(x), y))
                 self.logger.info('Test batch size: {:d} \tCount steps per epoch: {:d}'.format(
                     self.cfg.dataset.test.batch_size, np.round(self.count_test / self.cfg.dataset.test.batch_size).astype(int)))
             else:  # No test phase

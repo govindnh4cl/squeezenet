@@ -53,7 +53,7 @@ class Pipeline(object):
                     # Convert into batched datasets
                     self.train_dataset = self.train_dataset.batch(self.cfg.dataset.train.batch_size, drop_remainder=False)
                     # Image normalization
-                    self.train_dataset = self.train_dataset.map(lambda x, y: (tf.image.per_image_standardization(x), y))
+                    self.train_dataset = self.train_dataset.map(lambda x, y: (self.normalize_image(x), y))
                     self.logger.info('Training batch size: {:d} \tCount steps per epoch: {:d}'.format(
                         self.cfg.dataset.train.batch_size, np.round(self.count_train / self.cfg.dataset.train.batch_size).astype(int)))
                 else:
@@ -69,7 +69,7 @@ class Pipeline(object):
                     # Convert into batched datasets
                     self.val_dataset = self.val_dataset.batch(self.cfg.dataset.val.batch_size, drop_remainder=False)
                     # Image normalization
-                    self.val_dataset = self.val_dataset.map(lambda x, y: (tf.image.per_image_standardization(x), y))
+                    self.val_dataset = self.val_dataset.map(lambda x, y: (self.normalize_image(x), y))
                     self.logger.info('Validation batch size: {:d} \tCount steps per epoch: {:d}'.format(
                         self.cfg.dataset.val.batch_size, np.round(self.count_val/self.cfg.dataset.val.batch_size).astype(int)))
                 else:
@@ -97,7 +97,7 @@ class Pipeline(object):
                 # Convert into batched datasets
                 self.test_dataset = self.test_dataset.batch(self.cfg.dataset.test.batch_size, drop_remainder=False)
                 # Image normalization
-                self.test_dataset = self.test_dataset.map(lambda x, y: (tf.image.per_image_standardization(x), y))
+                self.test_dataset = self.test_dataset.map(lambda x, y: (self.normalize_image(x), y))
                 self.logger.info('Test batch size: {:d} \tCount steps per epoch: {:d}'.format(
                     self.cfg.dataset.test.batch_size, np.round(self.count_test / self.cfg.dataset.test.batch_size).astype(int)))
             else:  # No test phase
@@ -105,6 +105,27 @@ class Pipeline(object):
                 self.count_test = 0
 
         return
+
+    @staticmethod
+    def normalize_image(img_batch):
+        """
+        Applies normalization on a batch of images
+        :param img_batch: Image batch of shape (None, 3, ht, wd). Channel order is BGR
+        :return: Normalized image of same shape (as input) and dtype tf.float32
+        """
+        # TODO: The n/w may also accept a single image (shape = 3). So remove this assert below
+        assert len(img_batch.shape) == 4  # Sanity check.
+
+        return tf.image.per_image_standardization(img_batch)
+
+    def _perturb_image(self, img_batch):
+        """
+        Aplies a random perturbation for data-augmentation during training
+        :param img_batch: Image batch of shape (None, 3, ht, wd). Channel order is BGR
+        :return:
+        """
+        return img_batch
+
 
     def get_train_dataset(self):
         return self.train_dataset

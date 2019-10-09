@@ -152,7 +152,8 @@ class DevelopSqueezenet:
                                      .format(min_val_loss.read_value(), val_loss, self.cfg.directories.dir_model))
 
                     # Add input shape to prediction function
-                    self.net.call.get_concrete_function(batch_x=tf.TensorSpec([None, 3, 32, 32], tf.float32))
+                    batch_shape = [None, 3, 32, 32] if self.cfg.model.data_format == 'channels_first' else [None, 32, 32, 3]
+                    self.net.call.get_concrete_function(batch_x=tf.TensorSpec(batch_shape, tf.float32))
                     tf.saved_model.save(self.net, self.cfg.directories.dir_model)  # Save model
                     min_val_loss.assign(val_loss)  # Update
 

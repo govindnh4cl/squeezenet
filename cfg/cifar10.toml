@@ -56,5 +56,6 @@ title = "Config file for running model with cifar10"
 [model]
     batch_norm_decay = 0.9
     weight_decay = 0.0
+    data_format = 'channels_first'  # Supported values: 'channels_first', 'channels_last'
 
 

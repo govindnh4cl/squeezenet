@@ -30,8 +30,11 @@ class Pipeline(object):
 
             if (self.cfg.dataset.train.enable or self.cfg.dataset.val.enable) is True:
                 x_train = tf.cast(x_train, tf.float32)
+
                 # Convert to channel-first
-                x_train = tf.transpose(x_train, [0, 3, 1, 2])
+                if self.cfg.model.data_format == 'channels_first':
+                    x_train = tf.transpose(x_train, [0, 3, 1, 2])
+
                 # Convert labels to one-hot
                 y_train = tf.one_hot(indices=y_train, depth=10, axis=1, on_value=1, off_value=0, dtype=tf.int32)
 
@@ -81,8 +84,11 @@ class Pipeline(object):
                 # Convert image dtype to float32
                 # TODO: I think this is unnecessary
                 x_test = tf.cast(x_test, tf.float32)
+
                 # Convert to channel-first
-                x_test = tf.transpose(x_test, [0, 3, 1, 2])
+                if self.cfg.model.data_format == 'channels_first':
+                    x_test = tf.transpose(x_test, [0, 3, 1, 2])
+
                 # Convert labels to one-hot
                 y_test = tf.one_hot(indices=y_test, depth=10, axis=1, on_value=1, off_value=0, dtype=tf.int32)
 

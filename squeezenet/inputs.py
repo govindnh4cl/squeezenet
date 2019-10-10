@@ -10,6 +10,11 @@ class Pipeline(object):
     def __init__(self, cfg):
         self.cfg = cfg
         self.logger = get_logger()
+
+        if self.cfg.preprocessing.enable_augmentation is True:
+            # Some data augmentation calls only support 'channels_last' format
+            assert self.cfg.model.data_format == 'channels_last'
+
         self._setup_dataset_objects()
         return
 
@@ -57,6 +62,10 @@ class Pipeline(object):
                     self.train_dataset = self.train_dataset.batch(self.cfg.dataset.train.batch_size, drop_remainder=False)
                     # Image normalization
                     self.train_dataset = self.train_dataset.map(lambda x, y: (self.normalize_image(x), y))
+
+                    if self.cfg.preprocessing.enable_augmentation is True:  # Data augmentation
+                        self.train_dataset = self.train_dataset.map(lambda x, y: (self._perturb_image(x), y))
+
                     self.logger.info('Training batch size: {:d} \tCount steps per epoch: {:d}'.format(
                         self.cfg.dataset.train.batch_size, np.round(self.count_train / self.cfg.dataset.train.batch_size).astype(int)))
                 else:
@@ -130,8 +139,8 @@ class Pipeline(object):
         :param img_batch: Image batch of shape (None, 3, ht, wd). Channel order is BGR
         :return:
         """
+        img_batch = tf.image.random_flip_left_right(img_batch, seed=1337)
         return img_batch
-
 
     def get_train_dataset(self):
         return self.train_dataset

@@ -64,7 +64,7 @@ class DevelopSqueezenet:
         self.logger.info('Training with Tensorflow API')
 
         # Model checkpoints
-        ckpt_counter = tf.Variable(initial_value=0, trainable=False, dtype=tf.int64)
+        ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)
         min_val_loss = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
         ckpt = tf.train.Checkpoint(model=self.net,
                                    ckpt_counter=ckpt_counter,
@@ -79,6 +79,8 @@ class DevelopSqueezenet:
         if ckpt_mngr.latest_checkpoint:
             ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
             self.logger.info('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
+            self.logger.info('Checkpoint info: Checkpoint counter: {:d}'.format(ckpt_counter.numpy()))
+            self.logger.info('Checkpoint info: Min validation loss: {:f}'.format(min_val_loss.numpy()))
         else:
             ckpt_status = None
             self.logger.info('No checkpoint found. Starting from scratch.')
@@ -104,27 +106,17 @@ class DevelopSqueezenet:
 
                 batch_counter += 1  # Increment overall-batch-counter
 
+            self.logger.info('Epoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
+                epoch_idx,
+                running_loss.result(),
+                time.time() - start_time))
+
             # Verify the correctness of checkpoint loading
-            if 1:
+            if 0:
                 self.logger.warning('Not verifying that correctness of checkpoint loading')
             else:
                 if ckpt_status is not None:
                     ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
-
-            # Save checkpoint
-            if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
-                save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
-                self.logger.info('Epoch {:3d} Training Loss {:f} Time {:.1f}s. Saved checkpoint at {:s}'.format(
-                    epoch_idx,
-                    running_loss.result(),
-                    time.time() - start_time,
-                    save_path))
-            else:
-                self.logger.info('Epoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
-                    epoch_idx,
-                    running_loss.result(),
-                    time.time() - start_time))
-            ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
 
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:
@@ -156,6 +148,12 @@ class DevelopSqueezenet:
                     self.net.call.get_concrete_function(batch_x=tf.TensorSpec(batch_shape, tf.float32))
                     tf.saved_model.save(self.net, self.cfg.directories.dir_model)  # Save model
                     min_val_loss.assign(val_loss)  # Update
+
+            # Save checkpoint
+            ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
+            if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
+                save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
+                self.logger.info('Epoch {:3d} Saved checkpoint at {:s}'.format(epoch_idx, save_path))
 
         return
 

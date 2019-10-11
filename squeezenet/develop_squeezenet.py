@@ -210,7 +210,10 @@ class DevelopSqueezenet:
         train_dataset = self.pipeline.get_train_dataset()
         val_dataset = self.pipeline.get_val_dataset()
 
-        train_summary_writer = tf.summary.create_file_writer(self.cfg.directories.dir_tb)
+        if self.cfg.train.enable_summary is True:
+            train_summary_writer = tf.summary.create_file_writer(self.cfg.directories.dir_tb)
+        else:
+            train_summary_writer = tf.summary.create_noop_writer()
 
         with train_summary_writer.as_default():
             tf.summary.experimental.set_step(0)  # Set step for summaries

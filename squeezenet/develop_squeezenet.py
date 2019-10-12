@@ -62,28 +62,29 @@ class DevelopSqueezenet:
         :return:
         """
         self.logger.info('Training with Tensorflow API')
+        min_val_loss = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
 
         # Model checkpoints
-        ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)
-        min_val_loss = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
-        ckpt = tf.train.Checkpoint(model=self.net,
-                                   ckpt_counter=ckpt_counter,
-                                   optimizer=self.opt,
-                                   min_val_loss=min_val_loss)
+        if self.cfg.train.enable_chekpoints:
+            ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)
+            ckpt = tf.train.Checkpoint(model=self.net,
+                                       ckpt_counter=ckpt_counter,
+                                       optimizer=self.opt,
+                                       min_val_loss=min_val_loss)
 
-        ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
-                                               directory=self.cfg.directories.dir_ckpt,
-                                               max_to_keep=1)
+            ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
+                                                   directory=self.cfg.directories.dir_ckpt,
+                                                   max_to_keep=1)
 
-        # Checkpoint restoration
-        if ckpt_mngr.latest_checkpoint:
-            ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
-            self.logger.info('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
-            self.logger.info('Checkpoint info: Checkpoint counter: {:d}'.format(ckpt_counter.numpy()))
-            self.logger.info('Checkpoint info: Min validation loss: {:f}'.format(min_val_loss.numpy()))
-        else:
-            ckpt_status = None
-            self.logger.info('No checkpoint found. Starting from scratch.')
+            # Checkpoint restoration
+            if ckpt_mngr.latest_checkpoint:
+                ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
+                self.logger.info('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
+                self.logger.info('Checkpoint info: Checkpoint counter: {:d}'.format(ckpt_counter.numpy()))
+                self.logger.info('Checkpoint info: Min validation loss: {:f}'.format(min_val_loss.numpy()))
+            else:
+                ckpt_status = None
+                self.logger.info('No checkpoint found. Starting from scratch.')
 
         '''Main Loop'''
         batch_counter = tf.zeros(1, dtype=tf.int64)  # Overall batch-counter to serve as step for Tensorboard
@@ -112,11 +113,8 @@ class DevelopSqueezenet:
                 time.time() - start_time))
 
             # Verify the correctness of checkpoint loading
-            if 0:
-                self.logger.warning('Not verifying that correctness of checkpoint loading')
-            else:
-                if ckpt_status is not None:
-                    ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
+            if self.cfg.train.enable_chekpoints and ckpt_status is not None:
+                ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
 
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:
@@ -150,10 +148,11 @@ class DevelopSqueezenet:
                     min_val_loss.assign(val_loss)  # Update
 
             # Save checkpoint
-            ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
-            if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
-                save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
-                self.logger.info('Epoch {:3d} Saved checkpoint at {:s}'.format(epoch_idx, save_path))
+            if self.cfg.train.enable_chekpoints:
+                ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
+                if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
+                    save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
+                    self.logger.info('Epoch {:3d} Saved checkpoint at {:s}'.format(epoch_idx, save_path))
 
         return
 

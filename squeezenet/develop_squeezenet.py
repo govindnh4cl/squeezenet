@@ -16,7 +16,8 @@ class DevelopSqueezenet:
         self.logger = get_logger()
         self.pipeline = None
 
-        self.loss_fn = tf.keras.losses.CategoricalCrossentropy()  # Loss function
+        # self.loss_fn = tf.keras.losses.CategoricalCrossentropy()  # Loss function
+        self.loss_fn = tf.losses.categorical_crossentropy  # Loss function
 
         if self.cfg.misc.mode == 'train':
             self.net = self._set_network_for_training()
@@ -43,11 +44,16 @@ class DevelopSqueezenet:
 
     @tf.function  # For faster training speed
     def _train_step(self, batch_train):
+        """
+
+        :param batch_train:
+        :return: loss_batch: A tensor scalar
+        """
         batch_x, batch_y = batch_train[0], batch_train[1]  # Get current batch samples
 
         with tf.GradientTape() as tape:
             batch_y_pred = self.net(batch_x, training=True)  # Run prediction on batch
-            loss_batch = self.loss_fn(batch_y, batch_y_pred)  # compute loss
+            loss_batch = tf.reduce_mean(self.loss_fn(batch_y, batch_y_pred))  # compute loss
 
         grads = tape.gradient(loss_batch, self.net.trainable_variables)  # compute gradient
         self.opt.apply_gradients(zip(grads, self.net.trainable_variables))  # Update weights
@@ -115,7 +121,9 @@ class DevelopSqueezenet:
             # Verify the correctness of checkpoint loading
             if self.cfg.train.enable_chekpoints and ckpt_status is not None:
                 ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
+                # TODO: Should I set ckpt_status to True here
 
+            # TODO: time validation phase
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:
                 y_pred = np.nan * np.ones(shape=(self.pipeline.count_val, self.cfg.dataset.num_classes), dtype=np.float32)
@@ -132,7 +140,7 @@ class DevelopSqueezenet:
                     y_pred[idx: idx + samples_in_batch] = batch_y_pred
                     idx += samples_in_batch
 
-                val_loss = self.loss_fn(y_true, y_pred)
+                val_loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
                 val_acc = eval.get_categorical_accuracy(y_true, y_pred)
                 self.logger.info('Epoch {:3d} Validation Loss: {:f} Categorical accuracy: {:.1f}%'
                                  .format(epoch_idx, val_loss, val_acc * 100))

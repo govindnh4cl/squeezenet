@@ -82,7 +82,7 @@ class DevelopSqueezenet:
 
         # Model checkpoints
         if self.cfg.train.enable_train_chekpoints:
-            ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)
+            ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)  # Stores epoch ID
             ckpt = tf.train.Checkpoint(model=self.net,
                                        ckpt_counter=ckpt_counter,
                                        optimizer=self.opt)

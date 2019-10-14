@@ -56,9 +56,9 @@ class FireModule(tf.keras.Model):
         self.e3x3_1 = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=self.channel_axis)
         return
 
-    def call(self, input_tensor, training=False):
+    def call(self, input_tensor, training):
         s_out = self.s_0(input_tensor)
-        s_out = self.s_1(s_out, training=training)
+        s_out = self.s_1(s_out, training=training)  # Batch normalization needs to know if this is training phase
 
         e_out_0 = self.e1x1_0(s_out)
         e_out_0 = self.e1x1_1(e_out_0, training=training)
@@ -85,8 +85,18 @@ class Squeezenet(ABC, tf.keras.Model):
         self._weight_decay = cfg.model.weight_decay
         self._batch_norm_decay = cfg.model.batch_norm_decay
         self._input_shape = None
+        self._training = False
 
         return
+
+    @property
+    def training(self):
+        return self._training
+
+    @training.setter
+    def training(self, training):
+        assert type(training) == bool
+        self._training = training
 
 
 class Squeezenet_Imagenet(Squeezenet):
@@ -160,30 +170,30 @@ class Squeezenet_CIFAR(Squeezenet):
         self.l_16 = Activation('softmax')
         return
 
-    @tf.function
-    def call(self, batch_x, training=False):
+    @tf.function(input_signature=[tf.TensorSpec([None, 32, 32, 3], tf.float32)])
+    def call(self, batch_x):
         x = batch_x
 
         x = self.l_0(x)
-        x = self.l_1(x, training=training)
+        x = self.l_1(x, training=self.training)
         x = self.l_2(x)
 
-        x = self.l_3(x, training=training)
-        x = self.l_4(x, training=training)
-        x = self.l_5(x, training=training)
+        x = self.l_3(x, training=self.training)
+        x = self.l_4(x, training=self.training)
+        x = self.l_5(x, training=self.training)
         x = self.l_6(x)
 
-        x = self.l_7(x, training=training)
-        x = self.l_8(x, training=training)
-        x = self.l_9(x, training=training)
-        x = self.l_10(x, training=training)
+        x = self.l_7(x, training=self.training)
+        x = self.l_8(x, training=self.training)
+        x = self.l_9(x, training=self.training)
+        x = self.l_10(x, training=self.training)
         x = self.l_11(x)
 
-        x = self.l_12(x, training=training)
+        x = self.l_12(x, training=self.training)
         x = self.l_13(x)
 
         x = self.l_14(x)
-        x = self.l_15(x, training=training)
+        x = self.l_15(x, training=self.training)
 
         if self.data_format == 'channels_first':
             logits = tf.squeeze(x, [2, 3], name='logits')

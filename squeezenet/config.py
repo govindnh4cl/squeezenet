@@ -42,8 +42,17 @@ def _set_directories(cfg):
     # Tensorboard directory
     cfg.directories.dir_tb = os.path.join(cfg.directories.dir_tb_home, time.strftime("%Y-%m-%d_%H-%M-%S"))
     logger.debug('Tensorboard directory: {:s}'.format(cfg.directories.dir_tb))
+
     os.makedirs(cfg.directories.dir_ckpt, exist_ok=True)
     logger.debug('Checkpoint directory: {:s}'.format(cfg.directories.dir_ckpt))
+    if cfg.train.enable_train_chekpoints is True:
+        cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
+        os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
+        logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
+    if cfg.train.enable_save_best_model is True:
+        cfg.directories.dir_ckpt_save_model = os.path.join(cfg.directories.dir_ckpt, 'save_best_model')
+        os.makedirs(cfg.directories.dir_ckpt_save_model, exist_ok=True)
+        logger.debug('Checkpoint save best model directory: {:s}'.format(cfg.directories.dir_ckpt))
 
     return
 
@@ -138,6 +147,15 @@ def _set_dataset_params(cfg):
     return
 
 
+def _set_misc(cfg):
+    if cfg.validation.enable is False:
+        if cfg.train.enable_save_best_model == 'val_loss':
+            raise ValueError('Bad config parameters: validation.enable is false and '
+                             'train.enable_save_best_model is still set to "val_loss". '
+                             'Either set validation.enable to true or change train.enable_save_best_model '
+                             'to something else.')
+
+
 def get_config(args):
     """
     Returns a dictionary of configuration parameters
@@ -149,6 +167,7 @@ def get_config(args):
 
     cfg = _parse_cfg(args.cfg_file)
 
+    _set_misc(cfg)
     _set_directories(cfg)  # Set paths to all necessary directories
     _set_hardware(cfg)  # Set device to be used
     _set_dataset_params(cfg)  # Set dataset and train/val/test set related parameters

@@ -38,7 +38,7 @@ class DevelopSqueezenet:
         :param batch_data: input samples in a batch
         :return: output predictions. Shape: (batch_size, 1)
         """
-        batch_y_predicted = self.net(batch_data, training=False)  # Run prediction on batch
+        batch_y_predicted = self.net(batch_data)  # Run prediction on batch
 
         return batch_y_predicted
 
@@ -52,7 +52,7 @@ class DevelopSqueezenet:
         batch_x, batch_y = batch_train[0], batch_train[1]  # Get current batch samples
 
         with tf.GradientTape() as tape:
-            batch_y_pred = self.net(batch_x, training=True)  # Run prediction on batch
+            batch_y_pred = self.net(batch_x)  # Run prediction on batch
             loss_batch = tf.reduce_mean(self.loss_fn(batch_y, batch_y_pred))  # compute loss
 
         grads = tape.gradient(loss_batch, self.net.trainable_variables)  # compute gradient
@@ -68,29 +68,39 @@ class DevelopSqueezenet:
         :return:
         """
         self.logger.info('Training with Tensorflow API')
-        min_val_loss = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
+
+        best_model_value = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
+        saver_ckpt = tf.train.Checkpoint(best_model_value=best_model_value)
+        saver_ckpt_mngr = tf.train.CheckpointManager(checkpoint=saver_ckpt,
+                                                     directory=self.cfg.directories.dir_ckpt_save_model,
+                                                     max_to_keep=1)
+        if saver_ckpt_mngr.latest_checkpoint:
+            saver_ckpt_status = saver_ckpt.restore(saver_ckpt_mngr.latest_checkpoint)
+            saver_ckpt_status.assert_consumed()
+
+        self.logger.info('Saver checkpoint: Min validation loss: {:f}'.format(best_model_value.numpy()))
 
         # Model checkpoints
-        if self.cfg.train.enable_chekpoints:
+        if self.cfg.train.enable_train_chekpoints:
             ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)
             ckpt = tf.train.Checkpoint(model=self.net,
                                        ckpt_counter=ckpt_counter,
-                                       optimizer=self.opt,
-                                       min_val_loss=min_val_loss)
+                                       optimizer=self.opt)
 
             ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
-                                                   directory=self.cfg.directories.dir_ckpt,
+                                                   directory=self.cfg.directories.dir_ckpt_train,
                                                    max_to_keep=1)
 
             # Checkpoint restoration
             if ckpt_mngr.latest_checkpoint:
                 ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
-                self.logger.info('Restored checkpoint from: {:s}'.format(ckpt_mngr.latest_checkpoint))
-                self.logger.info('Checkpoint info: Checkpoint counter: {:d}'.format(ckpt_counter.numpy()))
-                self.logger.info('Checkpoint info: Min validation loss: {:f}'.format(min_val_loss.numpy()))
+                self.logger.info('Training checkpoint: Restored from: {:s}'.format(ckpt_mngr.latest_checkpoint))
+                self.logger.info('Training checkpoint: Checkpoint counter: {:d}'.format(ckpt_counter.numpy()))
             else:
                 ckpt_status = None
-                self.logger.info('No checkpoint found. Starting from scratch.')
+                self.logger.info('Training checkpoint: Not found. Init weights from scratch.')
+
+        self.net.training = True  # Enable training mode
 
         '''Main Loop'''
         batch_counter = tf.zeros(1, dtype=tf.int64)  # Overall batch-counter to serve as step for Tensorboard
@@ -118,12 +128,19 @@ class DevelopSqueezenet:
                 running_loss.result(),
                 time.time() - start_time))
 
-            # Verify the correctness of checkpoint loading
-            if self.cfg.train.enable_chekpoints and ckpt_status is not None:
-                ckpt_status.assert_consumed()  # Sanity check that checkpoint loading was error-free
-                # TODO: Should I set ckpt_status to True here
+            # Save checkpoint
+            if self.cfg.train.enable_train_chekpoints:
+                if ckpt_status is not None:
+                    ckpt_status.assert_consumed()  # Verify the correctness of checkpoint loading
+                    ckpt_status = None  # To prevent assert_consumed() from happening in next iteration
+
+                ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
+                if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
+                    save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
+                    self.logger.info('Epoch {:3d} Saved checkpoint at {:s}'.format(epoch_idx, save_path))
 
             # TODO: time validation phase
+            # TODO: Should we cover it with tf.no_gradient() of tf.stop_gradient() ?
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:
                 y_pred = np.nan * np.ones(shape=(self.pipeline.count_val, self.cfg.dataset.num_classes), dtype=np.float32)
@@ -145,22 +162,22 @@ class DevelopSqueezenet:
                 self.logger.info('Epoch {:3d} Validation Loss: {:f} Categorical accuracy: {:.1f}%'
                                  .format(epoch_idx, val_loss, val_acc * 100))
 
-                if val_loss < min_val_loss:
-                    self.logger.info('Val loss dropped from {:f} to {:f}. Updating saved model in directory: {:s}'
-                                     .format(min_val_loss.read_value(), val_loss, self.cfg.directories.dir_model))
+            # Check if this is the best model so far, and if so, then save it
+            if self.cfg.train.enable_save_best_model is True:
+                old_value = best_model_value
+                if self.cfg.train.best_model_criteria == 'train_loss':
+                    new_value = running_loss
+                elif self.cfg.train.best_model_criteria == 'val_loss':
+                    new_value = val_loss
+                else:
+                    assert False  # Unsupported self.cfg.train.best_model_criteria
 
-                    # Add input shape to prediction function
-                    batch_shape = [None, 3, 32, 32] if self.cfg.model.data_format == 'channels_first' else [None, 32, 32, 3]
-                    self.net.call.get_concrete_function(batch_x=tf.TensorSpec(batch_shape, tf.float32))
+                if new_value < old_value:
+                    self.logger.info('Saver checkpoint: Old: {:f} New: {:f}. Updating saved model in: {:s}'.
+                                     format(old_value.read_value(), new_value, self.cfg.directories.dir_model))
+                    best_model_value.assign(new_value)  # Update
+                    saver_ckpt_mngr.save()  # Save checkpoint with newly found best value
                     tf.saved_model.save(self.net, self.cfg.directories.dir_model)  # Save model
-                    min_val_loss.assign(val_loss)  # Update
-
-            # Save checkpoint
-            if self.cfg.train.enable_chekpoints:
-                ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
-                if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
-                    save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
-                    self.logger.info('Epoch {:3d} Saved checkpoint at {:s}'.format(epoch_idx, save_path))
 
         return
 

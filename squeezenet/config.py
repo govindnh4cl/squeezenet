@@ -81,6 +81,12 @@ def _set_hardware(cfg):
     else:
         raise ValueError('Unsupported hardware.device: {:} in configuration file'.format(cfg.hardware.device))
 
+    # force all tf.function to run eagerly.
+    # This would run the graph slow but would allow us to put breakpoints in case we are debugging
+    assert type(cfg.hardware.force_eager) == bool  # Sanity check
+    if cfg.hardware.force_eager is True:
+        tf.config.experimental_run_functions_eagerly(True)
+
     return
 
 

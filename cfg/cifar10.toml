@@ -10,6 +10,7 @@ title = "Config file for running model with cifar10"
     device = 'gpu'                  # Select the device to be used. Supported: 'gpu', 'cpu'
     num_gpu = 1                     # Count of GPUs to use. Supported: 1. Ignored if device is 'cpu'
     allow_memory_growth = true      # If true, then allocates memory on need basis. Ignored if device is 'cpu'
+    force_eager = false  # Force tf.function() to run eagerly. Will slow down processing, but enable putting breakpoints for debugging
 
 
 [dataset]

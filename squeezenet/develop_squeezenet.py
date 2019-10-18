@@ -288,7 +288,7 @@ class DevelopSqueezenet:
             y_pred[idx: idx + samples_in_batch] = batch_y_pred
             idx += samples_in_batch
 
-        loss = self.loss_fn(y_true, y_pred)
+        loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
         acc = eval.get_categorical_accuracy(y_true, y_pred)
         self.logger.info('Loss: {:f} Categorical accuracy: {:.1f}%'.format(loss, acc * 100))
 

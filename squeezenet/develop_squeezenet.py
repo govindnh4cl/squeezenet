@@ -69,18 +69,20 @@ class DevelopSqueezenet:
         """
         self.logger.info('Training with Tensorflow API')
 
-        best_model_value = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
-        saver_ckpt = tf.train.Checkpoint(best_model_value=best_model_value)
-        saver_ckpt_mngr = tf.train.CheckpointManager(checkpoint=saver_ckpt,
-                                                     directory=self.cfg.directories.dir_ckpt_save_model,
-                                                     max_to_keep=1)
-        if saver_ckpt_mngr.latest_checkpoint:
-            saver_ckpt_status = saver_ckpt.restore(saver_ckpt_mngr.latest_checkpoint)
-            saver_ckpt_status.assert_consumed()
+        # Model saver checkpoint
+        if self.cfg.train.enable_save_best_model is True:
+            best_model_value = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
+            saver_ckpt = tf.train.Checkpoint(best_model_value=best_model_value)
+            saver_ckpt_mngr = tf.train.CheckpointManager(checkpoint=saver_ckpt,
+                                                         directory=self.cfg.directories.dir_ckpt_save_model,
+                                                         max_to_keep=1)
+            if saver_ckpt_mngr.latest_checkpoint:
+                saver_ckpt_status = saver_ckpt.restore(saver_ckpt_mngr.latest_checkpoint)
+                saver_ckpt_status.assert_consumed()
 
-        self.logger.info('Saver checkpoint: Min validation loss: {:f}'.format(best_model_value.numpy()))
+            self.logger.info('Saver checkpoint: Min validation loss: {:f}'.format(best_model_value.numpy()))
 
-        # Model checkpoints
+        # Model training checkpoints
         if self.cfg.train.enable_train_chekpoints:
             ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)  # Stores epoch ID
             ckpt = tf.train.Checkpoint(model=self.net,
@@ -159,6 +161,8 @@ class DevelopSqueezenet:
 
                 val_loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
                 val_acc = eval.get_categorical_accuracy(y_true, y_pred)
+                tf.summary.scalar('Validation loss', val_loss)  # Log to tensorboard
+                tf.summary.scalar('Validation accuracy', val_acc)  # Log to tensorboard
                 self.logger.info('Epoch {:3d} Validation Loss: {:f} Categorical accuracy: {:.1f}%'
                                  .format(epoch_idx, val_loss, val_acc * 100))
 

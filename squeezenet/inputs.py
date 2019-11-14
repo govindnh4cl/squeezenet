@@ -131,6 +131,7 @@ class Pipeline(object):
         # TODO: The n/w may also accept a single image (shape = 3). So remove this assert below
         assert len(img_batch.shape) == 4  # Sanity check.
 
+        # TODO: Normalize according to the original paper
         return tf.image.per_image_standardization(img_batch)
 
     def _perturb_image(self, img_batch):

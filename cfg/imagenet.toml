@@ -1,4 +1,4 @@
-title = "Config file for running model with cifar10"
+title = "Config file for running model with Imagenet"
 
 
 [misc]
@@ -14,12 +14,22 @@ title = "Config file for running model with cifar10"
 
 
 [dataset]
-    dataset = 'cifar10'             # Dataset to use. Supported: 'cifar10', 'imagenet'
+    dataset = 'imagenet'             # Dataset to use. Supported: 'cifar10', 'imagenet'
 
 
-[cifar10]
-# ----- Only used if dataset is 'cifar10' -----
-    num_classes = 10
+[imagenet]
+# ----- Only used if dataset is 'imagenet' -----
+    # Path to text file containing 1,281,167 image paths
+    train_img_paths = '/hd1/datasets/imagenet/input/input_list_train.txt'
+    # Path to text file containing 50,000 image paths
+    val_img_paths = '/hd1/datasets/imagenet/input_list_val.txt'
+    # Path to text file containing 50,000 image class labels. Values are in range 1 to 1000
+    val_labels = '/hd1/datasets/imagenet/ILSVRC2012_devkit_t12/data/ILSVRC2012_validation_ground_truth.txt'
+    # path to json file containing a dictionary mapping WNID (e.g. 'n01440764') to class label (int in range 1 to 1000)
+    # This is needed to get class labels of training images from their paths
+    wnid_to_ilsvrc2012_id_path = '/hd1/datasets/imagenet/wnid_to_ilsvrc2012_id.json'
+
+    num_classes = 1000
 
 [directories]
     # Paths can either be absolute or relative to repository directory

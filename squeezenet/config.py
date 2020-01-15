@@ -90,20 +90,45 @@ def _set_hardware(cfg):
     return
 
 
+def _test_dataset_params(cfg):
+    """
+    Test for errors in dataset parameters
+    :param cfg: An EasyDict dictionary for configuration parameters
+    :return: None
+    """
+    # ----------- Tests for CIFAR10 dataset ------------
+    if cfg.dataset.dataset == 'cifar10':
+        assert cfg.cifar10.num_classes == 10  # Sanity check
+
+    # ----------- Tests for ImageNet dataset -----------
+    elif cfg.dataset.dataset == 'imagenet':
+        assert cfg.imagenet.num_classes == 1000  # Sanity check
+
+        # Check if all needed file are found
+        needed_files = [cfg.imagenet.train_img_paths,
+                        cfg.imagenet.val_img_paths,
+                        cfg.imagenet.val_labels,
+                        cfg.imagenet.wnid_to_ilsvrc2012_id_path]
+
+        for file_path in needed_files:
+            if not os.path.exists(file_path):
+                raise ValueError('Expected file: {:s} not found.'.format(file_path))
+
+    # ------------ Unsupported dataset -------------------
+    else:
+        raise ValueError('Unsupported dataset.dataset in configuration file: {:}'.format(cfg.dataset.dataset))
+
+
 def _set_dataset_params(cfg):
     """
     SAdds dataset specific parameters in cfg
     :param cfg: An EasyDict dictionary for configuration parameters
     :return: None
     """
-    if cfg.dataset.dataset not in ('cifar10', 'imagenet'):
-        raise ValueError('Unsupported dataset.dataset in configuration file: {:}'.format(cfg.dataset.dataset))
+    _test_dataset_params(cfg)  # Test for errors in dataset parameters
 
     # Set num_classes based on dataset used
-    if cfg.dataset.dataset == 'cifar10':
-        cfg.dataset.num_classes = 10
-    elif cfg.dataset.dataset == 'imagenet':
-        cfg.dataset.num_classes = 1000
+    cfg.dataset.num_classes = cfg[cfg.dataset.dataset].num_classes
 
     # Hold parameters for portions of datasets
     cfg.dataset.train = EasyDict()

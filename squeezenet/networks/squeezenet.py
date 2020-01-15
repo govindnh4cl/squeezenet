@@ -6,7 +6,7 @@ from abc import ABC
 import tensorflow as tf
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.layers import Input, Conv2D, GlobalAveragePooling2D, MaxPooling2D, \
-    BatchNormalization, Activation, Dropout
+    BatchNormalization, Activation, Dropout, AveragePooling2D
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.models import Model
 

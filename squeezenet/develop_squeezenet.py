@@ -122,7 +122,10 @@ class DevelopSqueezenet:
                 running_loss.update_state(batch_loss)  # Update this batch's loss to
                 tf.summary.scalar('Train loss', batch_loss)  # Log to tensorboard
                 tf.summary.scalar('Train running-loss', running_loss.result())  # Log to tensorboard
-                # print('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
+
+                # Print status after each batch
+                print('\rEpoch {:3d} Batch: {:d} Training Loss {:f}'.
+                      format(epoch_idx, batch_idx, running_loss.result()), end='')
 
                 batch_counter += 1  # Increment overall-batch-counter
 

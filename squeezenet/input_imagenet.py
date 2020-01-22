@@ -136,6 +136,9 @@ class InputImagenetTrain(InputImagenetBase):
         # Preprocess samples
         dataset = dataset.map(lambda x, y: (self._preprocess_x(x), self._preprocess_y(y)))
 
+        # Batching should only be performed after the preprocessing makes all samples same shape
+        dataset = dataset.batch(batch_size=self._batch_size, drop_remainder=False)
+
         return dataset
 
     def _preprocess_x(self, x):
@@ -153,14 +156,16 @@ class InputImagenetTrain(InputImagenetBase):
             # x[:, :, :, 2] -= 104  # Blue
 
             x = tf.math.subtract(x, [123, 117, 104])  # RGB channel order assumed
-            return x
+
+            if None in x.shape:
+                return x
 
             # TODO: Scale the images to (-1, +1) ?
 
             # Resize and crop image
-            small_edges = min(x.shape[1], x.shape[2])  # A 1-D array
-            s_upon_h = small_edges / x.shape[:, 1]
-            s_upon_w = small_edges / x.shape[:, 2]
+            small_edges = min(x.shape[0], x.shape[1])  # A 1-D array
+            s_upon_h = small_edges / x.shape[:, 0]
+            s_upon_w = small_edges / x.shape[:, 1]
 
             boxes = [(1 - s_upon_h) / 2, (1 - s_upon_w) / 2, (1 + s_upon_h) / 2, (1 + s_upon_w) / 2]
 
@@ -170,6 +175,8 @@ class InputImagenetTrain(InputImagenetBase):
                 tf.range(x.shape[0]),
                 (224, 224))
 
+            import sys
+            tf.print('############### ', x.shape, output_stream=sys.stdout)
             # Randomly flip left-right. Done only for training phase
             if self._do_perturb:
                 x = tf.image.random_flip_left_right(x)

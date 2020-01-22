@@ -42,7 +42,7 @@ title = "Config file for running model with Imagenet"
 # Training phase parameters
 # ----- Only used if misc.mode is 'train' -----
 [train]
-    batch_size = 2
+    batch_size = 1
     num_epochs = 2              # Count epochs to further train for
     enable_summary = false       # Enable/disable tensorboard summary for training
 

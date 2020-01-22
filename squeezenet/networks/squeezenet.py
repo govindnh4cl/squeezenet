@@ -151,10 +151,17 @@ class Squeezenet_Imagenet(Squeezenet):
         x = self.l_13(x)
 
         x = self.l_14(x)
+
+        logits = x
+        # logits = tf.squeeze(x, name='logits')
+
+        '''
         if self.data_format == 'channels_first':
             logits = tf.squeeze(x, [2, 3], name='logits')
         else:
             logits = tf.squeeze(x, [1, 2], name='logits')
+        '''
+
         out = self.l_15(logits)
 
         return out

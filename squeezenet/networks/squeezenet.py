@@ -95,7 +95,7 @@ class Squeezenet_Imagenet(Squeezenet):
     """Original squeezenet architecture for 227x227 images."""
     def __init__(self, cfg):
         Squeezenet.__init__(self, cfg, 'squeezenet_imagenet')
-        self._input_shape = (3, 227, 227)  # TODO: Can this be eliminated?
+        self._input_shape = (3, 224, 224)  # TODO: Can this be eliminated?
         num_classes = 1000
 
         # Axis that represents channel in the feature map
@@ -128,7 +128,7 @@ class Squeezenet_Imagenet(Squeezenet):
         return
 
     # TODO: This input signature is preventing us from switching to channels_first format
-    @tf.function(input_signature=[tf.TensorSpec([None, 227, 227, 3], tf.float32)])
+    @tf.function(input_signature=[tf.TensorSpec([None, 224, 224, 3], tf.float32)])
     def call(self, batch_x):
         x = batch_x
 

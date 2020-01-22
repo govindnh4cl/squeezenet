@@ -6,6 +6,7 @@ from my_logger import get_logger
 
 from squeezenet import inputs
 from squeezenet.config import get_config
+from squeezenet.inputs import get_input_pipeline
 from squeezenet.networks.squeezenet import Squeezenet_CIFAR, Squeezenet_Imagenet
 from squeezenet import eval
 
@@ -14,7 +15,7 @@ class DevelopSqueezenet:
     def __init__(self, args):
         self.cfg = get_config(args)  # Get dictionary with configuration parameters
         self.logger = get_logger()
-        self.pipeline = None
+        self._pipeline = dict()
 
         # self.loss_fn = tf.keras.losses.CategoricalCrossentropy()  # Loss function
         self.loss_fn = tf.losses.categorical_crossentropy  # Loss function
@@ -145,8 +146,8 @@ class DevelopSqueezenet:
             # TODO: Should we cover it with tf.no_gradient() of tf.stop_gradient() ?
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:
-                y_pred = np.nan * np.ones(shape=(self.pipeline.count_val, self.cfg.dataset.num_classes), dtype=np.float32)
-                y_true = np.nan * np.ones(shape=(self.pipeline.count_val, self.cfg.dataset.num_classes), dtype=np.float32)
+                y_pred = np.nan * np.ones(shape=(self._pipeline['val'].count, self.cfg.dataset.num_classes), dtype=np.float32)
+                y_true = np.nan * np.ones(shape=(self._pipeline['val'].count, self.cfg.dataset.num_classes), dtype=np.float32)
 
                 # Loop over batches in the epoch
                 idx = 0  # Index of samples processed so far
@@ -235,8 +236,12 @@ class DevelopSqueezenet:
         :return: None
         """
         '''Inputs'''
-        train_dataset = self.pipeline.get_train_dataset()
-        val_dataset = self.pipeline.get_val_dataset()
+        self._pipeline['train'] = get_input_pipeline(self.cfg, 'train')
+        # self._pipeline['val'] = get_input_pipeline(self.cfg, 'val')
+        self._pipeline['val'] = self._pipeline['train']  # TODO: disable this
+
+        train_dataset = self._pipeline['train'].get_dataset()
+        val_dataset = self._pipeline['val'].get_dataset()
 
         if self.cfg.train.enable_summary is True:
             train_summary_writer = tf.summary.create_file_writer(self.cfg.directories.dir_tb)
@@ -268,18 +273,12 @@ class DevelopSqueezenet:
 
         self.net = tf.saved_model.load(self.cfg.directories.dir_model)
 
-        y_pred = np.nan * np.ones(shape=(self.pipeline.count_test, self.cfg.dataset.num_classes), dtype=np.float32)
-        y_true = np.nan * np.ones(shape=(self.pipeline.count_test, self.cfg.dataset.num_classes), dtype=np.float32)
+        y_pred = np.nan * np.ones(shape=(self._pipeline['test'].count, self.cfg.dataset.num_classes), dtype=np.float32)
+        y_true = np.nan * np.ones(shape=(self._pipeline['test'].count, self.cfg.dataset.num_classes), dtype=np.float32)
 
         self.logger.info('Running evaluation on dataset portion: {:s}'.format(self.cfg.eval.portion))
-        if self.cfg.eval.portion == 'train':
-            dataset = self.pipeline.get_train_dataset()
-        elif self.cfg.eval.portion == 'val':
-            dataset = self.pipeline.get_val_dataset()
-        elif self.cfg.eval.portion == 'test':
-            dataset = self.pipeline.get_test_dataset()
-        else:
-            assert False
+        self._pipeline[self.cfg.eval.portion] = get_input_pipeline(self.cfg, self.cfg.eval.portion)
+        dataset = self._pipeline[self.cfg.eval.portion].get_dataset()
 
         # Loop over batches in the epoch
         idx = 0  # Index of samples processed so far
@@ -304,7 +303,6 @@ class DevelopSqueezenet:
         :return:
         """
         with tf.device(self.cfg.hardware.device):  # This does explicit device selection: cpu or gpu
-            self.pipeline = inputs.Pipeline(self.cfg)  # Instantiate
             if self.cfg.misc.mode == 'train':
                 self._run_train_mode()
             elif self.cfg.misc.mode == 'eval':

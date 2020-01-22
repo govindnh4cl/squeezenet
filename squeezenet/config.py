@@ -105,10 +105,21 @@ def _test_dataset_params(cfg):
         assert cfg.imagenet.num_classes == 1000  # Sanity check
 
         # Check if all needed file are found
-        needed_files = [cfg.imagenet.train_img_paths,
-                        cfg.imagenet.val_img_paths,
-                        cfg.imagenet.val_labels,
-                        cfg.imagenet.wnid_to_ilsvrc2012_id_path]
+        needed_files = list()
+
+        files = dict()
+        files['train'] = [cfg.imagenet.train_img_paths, cfg.imagenet.wnid_to_ilsvrc2012_id_path]
+        files['val'] = [cfg.imagenet.val_img_paths, cfg.imagenet.val_labels]
+        files['test'] = []  # TODO: implement
+
+        if cfg.misc.mode == 'train':
+            needed_files += files['train']
+
+            if cfg.validation.enable is True:
+                needed_files += files['val']
+
+        elif cfg.misc.mode == 'eval':
+            needed_files += files[cfg.eval.portion]
 
         for file_path in needed_files:
             if not os.path.exists(file_path):
@@ -125,8 +136,6 @@ def _set_dataset_params(cfg):
     :param cfg: An EasyDict dictionary for configuration parameters
     :return: None
     """
-    _test_dataset_params(cfg)  # Test for errors in dataset parameters
-
     # Set num_classes based on dataset used
     cfg.dataset.num_classes = cfg[cfg.dataset.dataset].num_classes
 
@@ -174,6 +183,9 @@ def _set_dataset_params(cfg):
 
         if cfg.dataset.test.enable:
             cfg.dataset.test.batch_size = cfg.eval.batch_size
+
+    # Test if dataset specific parameters are correct
+    _test_dataset_params(cfg)  # Test for errors in dataset parameters
 
     return
 

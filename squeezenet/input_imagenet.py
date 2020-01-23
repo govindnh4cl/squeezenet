@@ -118,8 +118,8 @@ class InputImagenetTrain(InputImagenetBase):
             x = tf.io.decode_jpeg(tf.io.read_file(self._img_paths[i]), channels=3)
             y = self._img_labels[i]
 
-            # import pdb
-            # pdb.set_trace()
+            x = self._preprocess_x(x)
+            y = self._preprocess_y(y)
 
             yield x, y
 
@@ -129,12 +129,12 @@ class InputImagenetTrain(InputImagenetBase):
 
         # Images returned by the generator can have uneven resolution
         dataset = tf.data.Dataset.from_generator(self._generator,
-                                                 output_types=(tf.uint8, tf.int64),
-                                                 output_shapes=(tf.TensorShape([None, None, 3]),
-                                                                tf.TensorShape([])))
+                                                 output_types=(tf.dtypes.float32, tf.dtypes.int64),
+                                                 output_shapes=(tf.TensorShape([224, 224, 3]),
+                                                                tf.TensorShape([1000])))
 
         # Preprocess samples
-        dataset = dataset.map(lambda x, y: (self._preprocess_x(x), self._preprocess_y(y)))
+        # dataset = dataset.map(lambda x, y: (self._preprocess_x(x), self._preprocess_y(y)))
 
         # Batching should only be performed after the preprocessing makes all samples same shape
         dataset = dataset.batch(batch_size=self._batch_size, drop_remainder=False)
@@ -146,40 +146,35 @@ class InputImagenetTrain(InputImagenetBase):
         Preprocess image
         :return:
         """
+        x = tf.expand_dims(x, axis=0)  # Add extra axis as batch
+
         # TODO: Is this really necessary
-        x = tf.cast(x, tf.float32)  # Cast datatype from tf.uint8 to tf.float32
+        x = tf.cast(x, tf.dtypes.float32)  # Cast datatype from tf.uint8 to tf.float32
 
         if self._cfg.model.data_format == 'channels_last':
             # Normalize image. Means (Blue, Green, Red): 104, 117, 123
-            # x[:, :, :, 0] -= 123  # Red
-            # x[:, :, :, 1] -= 117  # Green
-            # x[:, :, :, 2] -= 104  # Blue
-
             x = tf.math.subtract(x, [123, 117, 104])  # RGB channel order assumed
-
-            if None in x.shape:
-                return x
 
             # TODO: Scale the images to (-1, +1) ?
 
             # Resize and crop image
             small_edges = min(x.shape[0], x.shape[1])  # A 1-D array
-            s_upon_h = small_edges / x.shape[:, 0]
-            s_upon_w = small_edges / x.shape[:, 1]
+            s_upon_h = small_edges / x.shape[0]
+            s_upon_w = small_edges / x.shape[1]
 
-            boxes = [(1 - s_upon_h) / 2, (1 - s_upon_w) / 2, (1 + s_upon_h) / 2, (1 + s_upon_w) / 2]
+            boxes = [[(1 - s_upon_h) / 2, (1 - s_upon_w) / 2, (1 + s_upon_h) / 2, (1 + s_upon_w) / 2]]
 
             x = tf.image.crop_and_resize(
                 x,
                 boxes,
-                tf.range(x.shape[0]),
+                [0],
                 (224, 224))
 
-            import sys
-            tf.print('############### ', x.shape, output_stream=sys.stdout)
             # Randomly flip left-right. Done only for training phase
             if self._do_perturb:
                 x = tf.image.random_flip_left_right(x)
+
+            x = tf.squeeze(x)
 
         else:
             raise NotImplementedError
@@ -196,6 +191,6 @@ class InputImagenetTrain(InputImagenetBase):
         :return: A tensor of shape (None, 1000)
         """
         # Convert labels to one-hot
-        y = tf.one_hot(indices=y - 1, depth=1000)
+        y = tf.one_hot(indices=y - 1, depth=1000, dtype=tf.dtypes.int64)
 
         return y

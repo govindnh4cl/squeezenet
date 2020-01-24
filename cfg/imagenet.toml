@@ -10,7 +10,7 @@ title = "Config file for running model with Imagenet"
     device = 'gpu'                  # Select the device to be used. Supported: 'gpu', 'cpu'
     num_gpu = 1                     # Count of GPUs to use. Supported: 1. Ignored if device is 'cpu'
     allow_memory_growth = true      # If true, then allocates memory on need basis. Ignored if device is 'cpu'
-    force_eager = true  # Force tf.function() to run eagerly. Will slow down processing, but enable putting breakpoints for debugging
+    force_eager = false  # Force tf.function() to run eagerly. Will slow down processing, but enable putting breakpoints for debugging
 
 
 [dataset]
@@ -42,7 +42,7 @@ title = "Config file for running model with Imagenet"
 # Training phase parameters
 # ----- Only used if misc.mode is 'train' -----
 [train]
-    batch_size = 64
+    batch_size = 32
     num_epochs = 2              # Count epochs to further train for
     enable_summary = false       # Enable/disable tensorboard summary for training
 

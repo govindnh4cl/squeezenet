@@ -105,6 +105,13 @@ class InputImagenetTrain(InputImagenetBase):
             # Populate dummy labels for the test set since we don't get them for Imagenet
             self._img_labels = [0] * len(self._img_paths)  # 0 as the dummy label
 
+        # Enable for testing purposes
+        if 0:
+            limit = 4096  # Just use a small set
+            self._img_paths = self._img_paths[:limit]
+            self._img_labels = self._img_labels[:limit]
+
+
         return
 
     def _generator(self):
@@ -115,10 +122,10 @@ class InputImagenetTrain(InputImagenetBase):
             np.random.shuffle(indices)
 
         for i in indices:
-            x = tf.io.decode_jpeg(tf.io.read_file(self._img_paths[i]), channels=3)
+            x = self._img_paths[i]
             y = self._img_labels[i]
 
-            x = self._preprocess_x(x)
+            # x = self._preprocess_x(x)
             y = self._preprocess_y(y)
 
             yield x, y
@@ -129,58 +136,88 @@ class InputImagenetTrain(InputImagenetBase):
 
         # Images returned by the generator can have uneven resolution
         dataset = tf.data.Dataset.from_generator(self._generator,
-                                                 output_types=(tf.dtypes.float32, tf.dtypes.int64),
-                                                 output_shapes=(tf.TensorShape([224, 224, 3]),
+                                                 output_types=(tf.dtypes.string, tf.dtypes.int64),
+                                                 output_shapes=(tf.TensorShape([]),
                                                                 tf.TensorShape([1000])))
 
         # Preprocess samples
-        # dataset = dataset.map(lambda x, y: (self._preprocess_x(x), self._preprocess_y(y)))
+        dataset = dataset.map(
+            lambda x, y: (tf.py_function(func=self._preprocess_x_non_graph, inp=[x], Tout=tf.dtypes.float32), y),
+            num_parallel_calls=4)
+
+        # Prefetch samples using a separate thread for faster file-read
+        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         # Batching should only be performed after the preprocessing makes all samples same shape
         dataset = dataset.batch(batch_size=self._batch_size, drop_remainder=False)
 
+        dataset = dataset.map(
+            lambda x, y: (self._preprocess_x_with_graph(x), y),
+            num_parallel_calls=8)
+
         return dataset
 
-    def _preprocess_x(self, x):
+    # Don't use @tf.function for this as due to uneven image resolutions, this function
+    # cannot be converted to a graph
+    def _preprocess_x_non_graph(self, x):
         """
         Preprocess image
-        :return:
-        """
-        x = tf.expand_dims(x, axis=0)  # Add extra axis as batch
+        Contains processing that cannot be converted to a graph as the input image resolution is different
+        across dataset
+        :param x: String containing path of image
 
-        # TODO: Is this really necessary
-        x = tf.cast(x, tf.dtypes.float32)  # Cast datatype from tf.uint8 to tf.float32
+        :return: tensor of shape (224, 224, 3)
+        """
+        # Read image from filesystem
+        x = tf.io.decode_jpeg(tf.io.read_file(x), channels=3)
 
         if self._cfg.model.data_format == 'channels_last':
-            # Normalize image. Means (Blue, Green, Red): 104, 117, 123
-            x = tf.math.subtract(x, [123, 117, 104])  # RGB channel order assumed
+            # Crop image
+            ht, wd = x.shape[0], x.shape[1]
+            small_edge = min(ht, wd)
+            x_min = int((wd - small_edge) / 2)
+            x_max = int(x_min + small_edge)
+            y_min = int((ht - small_edge) / 2)
+            y_max = int(y_min + small_edge)
 
-            # TODO: Scale the images to (-1, +1) ?
+            cropped_x = x[y_min:y_max, x_min:x_max, :]  # Cropping operation
 
-            # Resize and crop image
-            small_edges = min(x.shape[0], x.shape[1])  # A 1-D array
-            s_upon_h = small_edges / x.shape[0]
-            s_upon_w = small_edges / x.shape[1]
-
-            boxes = [[(1 - s_upon_h) / 2, (1 - s_upon_w) / 2, (1 + s_upon_h) / 2, (1 + s_upon_w) / 2]]
-
-            x = tf.image.crop_and_resize(
-                x,
-                boxes,
-                [0],
-                (224, 224))
-
-            # Randomly flip left-right. Done only for training phase
-            if self._do_perturb:
-                x = tf.image.random_flip_left_right(x)
-
-            x = tf.squeeze(x)
+            # Resize image to common size.
+            # This converts the dtype from uint8 to float32
+            x = tf.image.resize(cropped_x, (224, 224))
 
         else:
             raise NotImplementedError
             x[:, 0, :, :] -= 123
             x[:, 1, :, :] -= 117
             x[:, 2, :, :] -= 104
+
+        return x
+
+    @tf.function
+    def _preprocess_x_with_graph(self, x):
+        """
+        Preprocess image
+        Contains processing that can be converted to a graph due to predetermined input/output shapes
+        across dataset
+
+        :return: tensor of same shape as x
+        """
+        # As per documentation, TF traces all map() functions to create their graph
+        # During tracing, the shape of x is not yet known. Conceptually we're certain
+        # that all inputs to this function are going to be 224x224 images. Hence, we
+        # must set it here so that the returned value of this function can have a known
+        # shape during tracing.
+        x.set_shape((None, 224, 224, 3))
+
+        # Normalize image. Means (Blue, Green, Red): 104, 117, 123
+        x = tf.math.subtract(x, [123, 117, 104])  # RGB channel order assumed
+        # Scale the images to range about [-1, +1]. Some elements could go outside this range
+        x = tf.math.divide(x, 127.)
+
+        # Randomly flip left-right. Done only for training phase
+        if self._do_perturb:
+            x = tf.image.random_flip_left_right(x)
 
         return x
 

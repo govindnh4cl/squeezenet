@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import tensorflow as tf
+import time
 
 from my_logger import get_logger
 
@@ -106,6 +107,7 @@ class DevelopSqueezenet:
         self.net.training = True  # Enable training mode
 
         '''Main Loop'''
+        last_sleep_time = time.time()
         batch_counter = tf.zeros(1, dtype=tf.int64)  # Overall batch-counter to serve as step for Tensorboard
         # Loop over epochs
         for epoch_idx in range(self.cfg.train.num_epochs):
@@ -128,6 +130,13 @@ class DevelopSqueezenet:
                       format(epoch_idx, batch_idx, running_loss.result()), end='')
 
                 batch_counter += 1  # Increment overall-batch-counter
+
+                # Sleep intermittently to avoid burning down my machine
+                if self.cfg.train.enable_intermittent_sleep and \
+                        time.time() - last_sleep_time > self.cfg.train.sleep_interval:
+                    self.logger.info('Sleeping for {:d} seconds.'.format(self.cfg.train.sleep_duration))
+                    time.sleep(self.cfg.train.sleep_duration)
+                    last_sleep_time = time.time()  # Reset
 
             self.logger.info('Epoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
                 epoch_idx,

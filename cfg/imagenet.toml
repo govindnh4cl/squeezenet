@@ -54,6 +54,10 @@ title = "Config file for running model with Imagenet"
     enable_save_best_model = false  # Whether to save model with best weights
     best_model_criteria = 'val_loss'  # Supported 'train_loss', 'val_loss'
 
+    enable_intermittent_sleep = true
+    sleep_interval = 1800  # In seconds. Interval after which to sleep
+    sleep_duration = 300  # In seconds. Duration for which to sleep
+
 # Validation phase parameters
 # ----- Only used if misc.mode is 'train' -----
 [validation]

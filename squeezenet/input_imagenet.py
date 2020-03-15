@@ -143,21 +143,20 @@ class InputImagenetTrain(InputImagenetBase):
                                                  output_types=(tf.dtypes.string, tf.dtypes.int64),
                                                  output_shapes=(tf.TensorShape([]),
                                                                 tf.TensorShape([1000])))
+        # Prefetch samples using a separate thread for faster file-read
+        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         # Preprocess samples
         dataset = dataset.map(
             lambda x, y: (tf.py_function(func=self._preprocess_x_non_graph, inp=[x], Tout=tf.dtypes.float32), y),
             num_parallel_calls=4)
 
-        # Prefetch samples using a separate thread for faster file-read
-        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-
         # Batching should only be performed after the preprocessing makes all samples same shape
         dataset = dataset.batch(batch_size=self._batch_size, drop_remainder=False)
 
         dataset = dataset.map(
             lambda x, y: (self._preprocess_x_with_graph(x), y),
-            num_parallel_calls=8)
+            num_parallel_calls=4)
 
         return dataset
 

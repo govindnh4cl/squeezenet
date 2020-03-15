@@ -105,21 +105,25 @@ class InputImagenetTrain(InputImagenetBase):
             # Populate dummy labels for the test set since we don't get them for Imagenet
             self._img_labels = [0] * len(self._img_paths)  # 0 as the dummy label
 
-        # Enable for testing purposes
-        if 0:
-            limit = 4096  # Just use a small set
-            self._img_paths = self._img_paths[:limit]
-            self._img_labels = self._img_labels[:limit]
-
-
         return
 
     def _generator(self):
-        indices = np.arange(self._count)
+        indices = tf.range(self._count)
 
-        # Shuffle the samples. A new ordering each epoch
-        if self._do_shuffle is True:
-            np.random.shuffle(indices)
+        # Enable for debugging purposes
+        if 0:
+            tf.random.set_seed(0)
+
+            # Shuffle the samples. A new ordering each epoch
+            if self._do_shuffle is True:
+                indices = tf.random.shuffle(indices, seed=0)
+
+            limit = 16384  # Just use a small set
+            indices = indices[:limit]
+        else:
+            # Shuffle the samples. A new ordering each epoch
+            if self._do_shuffle is True:
+                indices = tf.random.shuffle(indices, seed=1337)
 
         for i in indices:
             x = self._img_paths[i]

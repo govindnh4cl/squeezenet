@@ -220,7 +220,10 @@ class DevelopSqueezenet:
                 running_loss.update_state(batch_loss)
                 tf.summary.scalar('Train loss', batch_loss)
                 tf.summary.scalar('Train running-loss', running_loss.result())
-                self.logger.info('\rEpoch {:3d} Training Loss {:f}'.format(epoch_idx, running_loss.result()), end='')
+
+                # Print status after each batch
+                print('\rEpoch {:3d} Batch: {:d} Training Loss {:f}'.
+                      format(epoch_idx, batch_idx, running_loss.result()), end='')
 
                 batch_counter += 1
 
@@ -267,9 +270,9 @@ class DevelopSqueezenet:
                 self._train_tf(train_dataset, val_dataset)
             else:
                 '''Model Creation'''
-                model = net.get_keras_model()  # A keras model
+                model = self.net.get_keras_model()  # A keras model
                 model.summary()
-                _train_keras(model, train_dataset)
+                self._train_keras(model, train_dataset)
 
             self.logger.info('Training complete')
 

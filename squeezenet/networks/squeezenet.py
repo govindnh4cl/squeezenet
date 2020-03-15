@@ -166,6 +166,11 @@ class Squeezenet_Imagenet(Squeezenet):
 
         return out
 
+    def get_keras_model(self):
+        inp = Input(shape=(224, 224, 3))
+        model = Model(inputs=inp, outputs=self.call(inp))
+        return model
+
 
 class Squeezenet_CIFAR(Squeezenet):
     """Modified version of squeezenet for CIFAR images"""

@@ -19,7 +19,8 @@ class DevelopSqueezenet:
         self._pipeline = dict()
 
         # self.loss_fn = tf.keras.losses.CategoricalCrossentropy()  # Loss function
-        self.loss_fn = tf.losses.categorical_crossentropy  # Loss function
+        # self.loss_fn = tf.losses.categorical_crossentropy  # Loss function
+        self.loss_fn = lambda y, y_hat: -tf.math.reduce_sum(y * tf.math.log(y_hat + tf.keras.backend.epsilon()), axis=1)
 
         if self.cfg.misc.mode == 'train':
             self.net = self._set_network_for_training()

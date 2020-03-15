@@ -140,7 +140,7 @@ class InputImagenetTrain(InputImagenetBase):
 
         # Images returned by the generator can have uneven resolution
         dataset = tf.data.Dataset.from_generator(self._generator,
-                                                 output_types=(tf.dtypes.string, tf.dtypes.int64),
+                                                 output_types=(tf.dtypes.string, tf.dtypes.float32),
                                                  output_shapes=(tf.TensorShape([]),
                                                                 tf.TensorShape([1000])))
         # Prefetch samples using a separate thread for faster file-read
@@ -231,6 +231,6 @@ class InputImagenetTrain(InputImagenetBase):
         :return: A tensor of shape (None, 1000)
         """
         # Convert labels to one-hot
-        y = tf.one_hot(indices=y - 1, depth=1000, dtype=tf.dtypes.int64)
+        y = tf.one_hot(indices=y - 1, depth=1000, dtype=tf.dtypes.float32)
 
         return y

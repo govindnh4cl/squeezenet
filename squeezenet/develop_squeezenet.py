@@ -94,7 +94,7 @@ class DevelopSqueezenet:
 
             ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
                                                    directory=self.cfg.directories.dir_ckpt_train,
-                                                   max_to_keep=1)
+                                                   max_to_keep=self.cfg.train.keep_n_checkpoints)
 
             # Checkpoint restoration
             if ckpt_mngr.latest_checkpoint:

@@ -24,7 +24,8 @@ class DevelopSqueezenet:
 
         if self.cfg.misc.mode == 'train':
             self.net = self._set_network_for_training()
-            self.opt = tf.keras.optimizers.Adam()  # Optimizer
+            self.opt = tf.keras.optimizers.SGD(0.04)
+
         elif self.cfg.misc.mode == 'eval':
             self.logger.info("Loading model from directory: {:s}".format(self.cfg.directories.dir_model))
             if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
@@ -106,6 +107,12 @@ class DevelopSqueezenet:
                 self.logger.info('Training checkpoint: Not found. Init weights from scratch.')
 
         self.net.training = True  # Enable training mode
+
+        # Used for manually updating learning rate every couple of hours during training
+        if 1:
+            custom_lr = 0.04
+            self.logger.info('Using learning rate: {:f}'.format(custom_lr))
+            self.opt = tf.keras.optimizers.SGD(custom_lr)
 
         '''Main Loop'''
         last_sleep_time = time.time()

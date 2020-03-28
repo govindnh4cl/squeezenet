@@ -45,7 +45,7 @@ def _set_directories(cfg):
 
     os.makedirs(cfg.directories.dir_ckpt, exist_ok=True)
     logger.debug('Checkpoint directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_train_chekpoints is True:
+    if cfg.train.enable_chekpoints is True:
         cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
         os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
         logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))

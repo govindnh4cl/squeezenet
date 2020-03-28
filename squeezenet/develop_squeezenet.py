@@ -10,6 +10,7 @@ from squeezenet.config import get_config
 from squeezenet.inputs import get_input_pipeline
 from squeezenet.networks.squeezenet import Squeezenet_CIFAR, Squeezenet_Imagenet
 from squeezenet import eval
+from squeezenet.checkpoint_handler import CheckpointHandler
 
 
 class DevelopSqueezenet:
@@ -31,6 +32,8 @@ class DevelopSqueezenet:
                 raise OSError("Model directory: {:s} does not contain a saved model.")
             else:
                 self.net = tf.saved_model.load(self.cfg.directories.dir_model)
+
+        self._ckpt_hdl = CheckpointHandler(self.cfg)
 
         return
 
@@ -86,24 +89,11 @@ class DevelopSqueezenet:
             self.logger.info('Saver checkpoint: Min validation loss: {:f}'.format(best_model_value.numpy()))
 
         # Model training checkpoints
-        if self.cfg.train.enable_train_chekpoints:
-            ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)  # Stores epoch ID
-            ckpt = tf.train.Checkpoint(model=self.net,
-                                       ckpt_counter=ckpt_counter,
-                                       optimizer=self.opt)
-
-            ckpt_mngr = tf.train.CheckpointManager(checkpoint=ckpt,
-                                                   directory=self.cfg.directories.dir_ckpt_train,
-                                                   max_to_keep=self.cfg.train.keep_n_checkpoints)
-
-            # Checkpoint restoration
-            if ckpt_mngr.latest_checkpoint:
-                ckpt_status = ckpt.restore(ckpt_mngr.latest_checkpoint)
-                self.logger.info('Training checkpoint: Restored from: {:s}'.format(ckpt_mngr.latest_checkpoint))
-                self.logger.info('Training checkpoint: Checkpoint counter: {:d}'.format(ckpt_counter.numpy()))
-            else:
-                ckpt_status = None
-                self.logger.info('Training checkpoint: Not found. Init weights from scratch.')
+        if self.cfg.train.enable_chekpoints:
+            self._ckpt_hdl.load_checkpoint(self.net, self.opt)
+            checkpoint_verified = False
+        else:
+            checkpoint_verified = True
 
         self.net.training = True  # Enable training mode
 
@@ -126,6 +116,10 @@ class DevelopSqueezenet:
                 tf.summary.scalar('Train loss', batch_loss)  # Log to tensorboard
                 tf.summary.scalar('Train running-loss', running_loss.result())  # Log to tensorboard
 
+                if not checkpoint_verified:  # One time verification of whether checkpoint was restored properly
+                    self._ckpt_hdl.verify_checkpoint_restore()
+                    checkpoint_verified = True
+
                 # Print status after each batch
                 print('\rEpoch {:3d} Batch: {:d} Training Loss {:f}'.
                       format(epoch_idx, batch_idx, running_loss.result()), end='')
@@ -145,15 +139,8 @@ class DevelopSqueezenet:
                 time.time() - start_time))
 
             # Save checkpoint
-            if self.cfg.train.enable_train_chekpoints:
-                if ckpt_status is not None:
-                    ckpt_status.assert_consumed()  # Verify the correctness of checkpoint loading
-                    ckpt_status = None  # To prevent assert_consumed() from happening in next iteration
-
-                ckpt.ckpt_counter.assign_add(1)  # Increment checkpoint id
-                if int(ckpt.ckpt_counter) % self.cfg.train.checkpoint_interval == 0:
-                    save_path = ckpt_mngr.save(checkpoint_number=int(ckpt.ckpt_counter))  # Save checkpoint
-                    self.logger.info('Epoch {:3d} Saved checkpoint at {:s}'.format(epoch_idx, save_path))
+            if self.cfg.train.enable_chekpoints:
+                self._ckpt_hdl.save_checkpoint()
 
             # TODO: time validation phase
             # TODO: Should we cover it with tf.no_gradient() of tf.stop_gradient() ?

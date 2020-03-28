@@ -36,7 +36,7 @@ title = "Config file for running model with cifar10"
     num_epochs = 2              # Count epochs to further train for
     enable_summary = false       # Enable/disable tensorboard summary for training
 
-    enable_train_chekpoints = true  # Whether to enable storing checkpoints with n/w parameters while training
+    enable_chekpoints = true  # Whether to enable storing checkpoints with n/w parameters while training
     # Checkpoint parameters below are only used if enable_checkpoints is true
     checkpoint_interval = 1  # Epoch interval after which checkpoint must be saved
     keep_n_checkpoints = 1  # Count of checkpoints to keep

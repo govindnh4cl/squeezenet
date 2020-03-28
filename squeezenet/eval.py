@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def get_categorical_accuracy(y_true_label, y_pred):
+def get_accuracy(y_true_label, y_pred):
     """
 
     :param y_true_label: 1-D array of integers representing class labels (0 to 999)

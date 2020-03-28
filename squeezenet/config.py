@@ -107,9 +107,9 @@ def _test_dataset_params(cfg):
         # Check if all needed file are found
         needed_files = list()
 
-        files = dict()
+        files = dict()  # List of needed files/directories
         files['train'] = [cfg.imagenet.train_img_paths, cfg.imagenet.wnid_to_ilsvrc2012_id_path]
-        files['val'] = [cfg.imagenet.val_img_paths, cfg.imagenet.val_labels]
+        files['val'] = [cfg.imagenet.val_img_base_path, cfg.imagenet.val_labels_csv]
         files['test'] = []  # TODO: implement
 
         if cfg.misc.mode == 'train':

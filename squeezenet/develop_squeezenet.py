@@ -159,8 +159,8 @@ class DevelopSqueezenet:
             # TODO: Should we cover it with tf.no_gradient() of tf.stop_gradient() ?
             # Evaluate performance on validation set
             if self.cfg.validation.enable is True and epoch_idx % self.cfg.validation.validation_interval == 0:
-                y_pred = np.nan * np.ones(shape=(self._pipeline['val'].count, self.cfg.dataset.num_classes), dtype=np.float32)
-                y_true = np.nan * np.ones(shape=(self._pipeline['val'].count, self.cfg.dataset.num_classes), dtype=np.float32)
+                y_pred = np.nan * np.ones(shape=(len(self._pipeline['val']), self.cfg.dataset.num_classes), dtype=np.float32)
+                y_true = np.nan * np.ones(shape=(len(self._pipeline['val']), self.cfg.dataset.num_classes), dtype=np.float32)
 
                 # Loop over batches in the epoch
                 idx = 0  # Index of samples processed so far
@@ -174,11 +174,13 @@ class DevelopSqueezenet:
                     idx += samples_in_batch
 
                 val_loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
-                val_acc = eval.get_categorical_accuracy(y_true, y_pred)
+                y_true_label = tf.math.argmax(y_true, axis=1)  # 1-D tensor of integer labels. Values are 0-999
+                val_top1_acc, val_top5_acc = eval.get_accuracy(y_true_label, y_pred)
                 tf.summary.scalar('Validation loss', val_loss)  # Log to tensorboard
-                tf.summary.scalar('Validation accuracy', val_acc)  # Log to tensorboard
-                self.logger.info('Epoch {:3d} Validation Loss: {:f} Categorical accuracy: {:.1f}%'
-                                 .format(epoch_idx, val_loss, val_acc * 100))
+                tf.summary.scalar('Validation top-1 accuracy', val_top1_acc)  # Log to tensorboard
+                tf.summary.scalar('Validation top-5 accuracy', val_top5_acc)  # Log to tensorboard
+                self.logger.info('Epoch {:3d} Validation Loss: {:f} Accuracy Top-1: {:.1f}% Top-5: {:.1f}%'
+                                 .format(epoch_idx, val_loss, val_top1_acc * 100, val_top5_acc * 100))
 
             # Check if this is the best model so far, and if so, then save it
             if self.cfg.train.enable_save_best_model is True:
@@ -252,12 +254,15 @@ class DevelopSqueezenet:
         :return: None
         """
         '''Inputs'''
-        self._pipeline['train'] = get_input_pipeline(self.cfg, 'train')
-        # self._pipeline['val'] = get_input_pipeline(self.cfg, 'val')
-        self._pipeline['val'] = self._pipeline['train']  # TODO: disable this
-
+        self._pipeline['train'] = get_input_pipeline(self.cfg, 'train', 'train')
         train_dataset = self._pipeline['train'].get_dataset()
-        val_dataset = self._pipeline['val'].get_dataset()
+
+        if self.cfg.validation.enable:
+            self._pipeline['val'] = get_input_pipeline(self.cfg, 'inference', 'validation')
+            val_dataset = self._pipeline['val'].get_dataset()
+        else:
+            self._pipeline['val'] = None
+            val_dataset = None
 
         if self.cfg.train.enable_summary is True:
             train_summary_writer = tf.summary.create_file_writer(self.cfg.directories.dir_tb)
@@ -289,8 +294,8 @@ class DevelopSqueezenet:
 
         self.net = tf.saved_model.load(self.cfg.directories.dir_model)
 
-        y_pred = np.nan * np.ones(shape=(self._pipeline['test'].count, self.cfg.dataset.num_classes), dtype=np.float32)
-        y_true = np.nan * np.ones(shape=(self._pipeline['test'].count, self.cfg.dataset.num_classes), dtype=np.float32)
+        y_pred = np.nan * np.ones(shape=(len(self._pipeline['test']), self.cfg.dataset.num_classes), dtype=np.float32)
+        y_true = np.nan * np.ones(shape=(len(self._pipeline['test']), self.cfg.dataset.num_classes), dtype=np.float32)
 
         self.logger.info('Running evaluation on dataset portion: {:s}'.format(self.cfg.eval.portion))
         self._pipeline[self.cfg.eval.portion] = get_input_pipeline(self.cfg, self.cfg.eval.portion)

@@ -6,24 +6,24 @@ from tensorflow import data
 
 from my_logger import get_logger
 
-def get_input_pipeline(cfg, portion):
+
+def get_input_pipeline(cfg, purpose, portion):
     """
     A factory for instantiating the pipeline object
     :param cfg:
-    :param portion: Portion of entire dataset to use. Supported: 'train', 'val', 'test'
+    :param purpose: 'train', 'inference'.
+        'train': For training the network
+        'inference': For validation, testing, deployment, inference etc.
+    :param portion: 'train', 'validation', 'test', None
+        Which portion of the dataset to load.
+            'train': Take samples from train split
+            'validation': Take samples from validation split
+            'test': Take samples from test split. This does not have labels.
     :return: An derived class object of class Pipeline
     """
     if cfg.dataset.dataset == 'imagenet':
-        if portion == 'train':
-            from squeezenet.input_imagenet import InputImagenetTrain  # Not done on top to avoid circular dependency
-            pipeline = InputImagenetTrain(cfg, portion='train')
-        elif portion == 'val':
-            raise NotImplementedError
-        elif portion == 'test':
-            raise NotImplementedError
-        else:
-            raise Exception('Unsupported dataset portion: {:}'.format(portion))
-
+        from squeezenet.input_imagenet import InputImagenet  # Not done on top to avoid circular dependency
+        pipeline = InputImagenet(cfg, purpose, portion)
     elif cfg.dataset.dataset == 'cifar10':
         raise NotImplementedError
 
@@ -47,7 +47,7 @@ class Pipeline(ABC):
         """
         return self._dataset
 
-    def get_count(self):
+    def __len__(self):
         """
         Returns the count of total samples in this pipeline
         :return: Integer count

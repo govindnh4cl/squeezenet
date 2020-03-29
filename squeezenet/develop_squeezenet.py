@@ -25,17 +25,6 @@ class DevelopSqueezenet:
 
         self.net = None  # Main network instance
         self.opt = None  # Optimizer instance
-
-        if self.cfg.misc.mode == 'train':
-            self.net = self._set_network_for_training()
-            self.opt = tf.keras.optimizers.Adam()  # Optimizer
-        elif self.cfg.misc.mode == 'eval':
-            self.logger.info("Loading model from directory: {:s}".format(self.cfg.directories.dir_model))
-            if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
-                raise OSError("Model directory: {:s} does not contain a saved model.")
-            else:
-                self.net = tf.saved_model.load(self.cfg.directories.dir_model)
-
         self._ckpt_hdl = CheckpointHandler(self.cfg)
 
         return
@@ -60,7 +49,7 @@ class DevelopSqueezenet:
         :param batch_data: input samples in a batch
         :return: output predictions. Shape: (batch_size, 1)
         """
-        batch_y_predicted = self.net(batch_data)  # Run prediction on batch
+        batch_y_predicted = self.net.call(batch_data)  # Run prediction on batch
 
         return batch_y_predicted
 
@@ -74,7 +63,7 @@ class DevelopSqueezenet:
         batch_x, batch_y = batch_train[0], batch_train[1]  # Get current batch samples
 
         with tf.GradientTape() as tape:
-            batch_y_pred = self.net(batch_x)  # Run prediction on batch
+            batch_y_pred = self.net.call(batch_x)  # Run prediction on batch
             loss_batch = tf.reduce_mean(self.loss_fn(batch_y, batch_y_pred))  # compute loss
 
         grads = tape.gradient(loss_batch, self.net.trainable_variables)  # compute gradient
@@ -92,8 +81,6 @@ class DevelopSqueezenet:
         self.logger.info('Training with Tensorflow API')
 
         self.load_checkpointables()  # Create network. Also load values from checkpoint if checkpoints are enabled.
-
-        # Model training checkpoints
         if self.cfg.train.enable_chekpoints:
             checkpoint_verified = False
         else:
@@ -257,8 +244,12 @@ class DevelopSqueezenet:
 
         return
 
-    def _load_model(self):
-
+    def _load_saved_model(self):
+        self.logger.info("Loading model from directory: {:s}".format(self.cfg.directories.dir_model))
+        if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
+            raise OSError("Model directory: {:s} does not contain a saved model.")
+        else:
+            self.net = tf.saved_model.load(self.cfg.directories.dir_model)
 
         return
 
@@ -267,14 +258,10 @@ class DevelopSqueezenet:
         Evaluates the model on dataset
         :return: None
         """
-        if 1:
-            self.load_checkpointables('latest')
-        else:
-            if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
-                raise FileNotFoundError('Could not find a saved model in directory: {:s}'
-                                        .format(self.cfg.directories.dir_model))
-
-            self.net = tf.saved_model.load(self.cfg.directories.dir_model)
+        if self.cfg.eval.load_from == 'checkpoint':
+            self.load_checkpointables(self.cfg.eval.checkpoint_id)
+        else:  # Load from a saved model
+            self._load_saved_model()
 
         self.logger.info('Running evaluation on dataset portion: {:s}'.format(self.cfg.eval.portion))
         self._pipeline[self.cfg.eval.portion] = get_input_pipeline(self.cfg, 'inference', self.cfg.eval.portion)

@@ -74,6 +74,17 @@ title = "Config file for running model with Imagenet"
                                 # Portion of entire dataset to use. Supported: 'train', 'val', 'test'
     batch_size = 64
 
+    # Supported value:
+    #   'checkpoint': Load from checkpoint as specified by eval.checkpoint_id
+    #   'saved': Load model from a saved model in directory directories.dir_model
+    load_from = 'saved'  # Supported: 'checkpoint', 'saved'
+
+    # If eval.load_from is 'checkpoint', then this is used to specify which checkpoint to load from
+    # Searches for checkpoints in directory specified by directories.dir_ckpt
+    #   'latest': Latest checkpoint
+    #   <int>: checkpoint inetger id
+    checkpoint_id = 0
+
 
 
 [model]

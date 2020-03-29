@@ -82,6 +82,7 @@ class CheckpointHandler:
         :return: None
         """
         if self._ckpt_status is not None:
+            self._logger('Verifying the checkpoint-restore operation.')
             self._ckpt_status.assert_consumed()  # Verify the correctness of checkpoint loading
 
         return

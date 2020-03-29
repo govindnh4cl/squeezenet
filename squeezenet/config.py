@@ -190,6 +190,8 @@ def _set_misc(cfg):
     if cfg.validation.enable is False:
         pass
 
+    # TODO: Check eval mode parameters
+
 
 def get_config(args):
     """

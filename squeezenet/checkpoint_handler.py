@@ -8,12 +8,15 @@ class CheckpointHandler:
     Handles checkpoint related tasks
     """
     def __init__(self, cfg):
+        """
+
+        :param cfg: Configuration
+        """
         self._logger = get_logger()
         self._cfg = cfg
 
-        # A tensor to hold the checkpoint index
-        # Needed just for knowing what epoch a checkpoint belongs to
-        self._ckpt_counter = None
+        # A tensor to hold the checkpoint integer id
+        self._ckpt_id = None
 
         self._ckpt = None  # An object of class tf.train.Checkpoint()
         self._ckpt_mngr = None  # An object of class tf.train.CheckpointManager()
@@ -21,27 +24,53 @@ class CheckpointHandler:
 
         return
 
-    def load_checkpoint(self, net, opt):
+    def load_checkpoint(self, to_store, ckpt2load='latest'):
         """
         Loads checkpoint from directory.
-        :param net: Network to be stored
-        :param opt: Optimizer (and its states) to be stored
+        :param to_store: A dictionary of Python object stored in checkpoints
+        :param ckpt2load: Specify which checkpoint to load. Supported values
+            'latest': Use the most recent checkpoint
+            'scratch': Don't load from any checkpoint
+            <int>: Specify the integer ID of the checkpoint to load from
         :return: None
         """
-        # Checkpoint restoration
-        self._ckpt_counter = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)  # Stores epoch ID
-        self._ckpt = tf.train.Checkpoint(model=net, ckpt_counter=self._ckpt_counter, optimizer=opt)
+        self._ckpt_id = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)  # Stores epoch ID
+        self._ckpt = tf.train.Checkpoint(model=to_store['net'], ckpt_counter=self._ckpt_id, optimizer=to_store['opt'])
 
         self._ckpt_mngr = tf.train.CheckpointManager(checkpoint=self._ckpt,
                                                      directory=self._cfg.directories.dir_ckpt_train,
                                                      max_to_keep=self._cfg.train.keep_n_checkpoints)
 
-        if self._ckpt_mngr.latest_checkpoint:  # Search for a checkpoint in the checkpoint directory
-            self._ckpt_status = self._ckpt.restore(self._ckpt_mngr.latest_checkpoint)  # Restore
-            self._logger.info('Training checkpoint: Restored from: {:s}'.format(self._ckpt_mngr.latest_checkpoint))
-            self._logger.info('Training checkpoint: Checkpoint counter: {:d}'.format(self._ckpt_counter.numpy()))
+        if ckpt2load == 'latest':
+            ckpt_path = self._ckpt_mngr.latest_checkpoint
+            if ckpt_path is None:
+                self._logger.info('No existing checkpoint found.')
+            else:
+                ckpt_id = int(ckpt_path.split('-')[-1])
+
+        elif ckpt2load == 'scratch':
+            # Nothing needs to be done as networks weights will be randomly initialized
+            ckpt_path = None
+
         else:
-            self._logger.info('Training checkpoint: Not found. Init weights from scratch.')
+            ckpt_id = int(ckpt2load)
+            ckpt_ids = [int(x.split('-'[-1])) for x in self._ckpt_mngr.checkpoints]
+
+            try:
+                ckpt_path = self._ckpt_mngr.checkpoints[ckpt_ids.index(ckpt_id)]
+            except ValueError:
+                self._logger.error("Couldn't find checkpoint for ID: {:d}. Available checkpoint IDs: {:}"
+                                   .format(ckpt_id, ckpt_ids))
+
+                ckpt_path = None  # Continue without loading checkpoint
+
+        if ckpt_path is None:
+            # Nothing needs to be done
+            self._logger.info('Not restoring checkpoint. Init weights from scratch.')
+        else:
+            self._ckpt.restore(ckpt_path)
+            self._logger.info('Checkpoint ID: {:d} restored from: {:s}'
+                              .format(ckpt_id, str(self._ckpt_mngr.latest_checkpoint)))
 
         return
 

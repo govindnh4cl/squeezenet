@@ -60,7 +60,7 @@ class InputImagenet(InputImagenetBase):
         :param purpose: 'train', 'inference'.
             'train': For training the network
             'inference': For validation, testing, deployment, inference etc.
-        :param portion: 'train', 'validation', 'test', None
+        :param portion: 'train', 'val', 'test', None
             Which portion of the dataset to load.
                 'train': Take samples from train split
                 'validation': Take samples from validation split
@@ -76,7 +76,7 @@ class InputImagenet(InputImagenetBase):
             assert self._portion != 'test'  # Can't train with test set as no ground truth available for Imagenet
             assert self._portion is not None  # Must specify a source to load the training samples from
 
-        self._batch_size = self._cfg[self._portion].batch_size
+        self._batch_size = self._cfg.dataset[self._portion].batch_size
         self._img_paths, self._img_labels = self._load_input_data()  # Load image paths and corresponding labels
         self._count = len(self._img_paths)  # count of samples
 
@@ -178,7 +178,7 @@ class InputImagenet(InputImagenetBase):
     def _load_input_data(self):
         if self._portion == 'train':
             return self._load_training_set()
-        elif self._portion == 'validation':
+        elif self._portion == 'val':
             return self._load_validation_set()
         elif self._portion == 'test':
             return self._load_test_set()

@@ -41,8 +41,6 @@ title = "Config file for running model with cifar10"
     checkpoint_interval = 1  # Epoch interval after which checkpoint must be saved
     keep_n_checkpoints = 1  # Count of checkpoints to keep
 
-    enable_save_best_model = true  # Whether to save model with best weights
-    best_model_criteria = 'val_loss'  # Supported 'train_loss', 'val_loss'
 
 # Validation phase parameters
 # ----- Only used if misc.mode is 'train' -----

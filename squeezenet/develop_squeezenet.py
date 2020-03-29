@@ -23,6 +23,9 @@ class DevelopSqueezenet:
         # self.loss_fn = tf.losses.categorical_crossentropy  # Loss function
         self.loss_fn = lambda y, y_hat: -tf.math.reduce_sum(y * tf.math.log(y_hat + tf.keras.backend.epsilon()), axis=1)
 
+        self.net = None  # Main network instance
+        self.opt = None  # Optimizer instance
+
         if self.cfg.misc.mode == 'train':
             self.net = self._set_network_for_training()
             self.opt = tf.keras.optimizers.Adam()  # Optimizer
@@ -35,6 +38,19 @@ class DevelopSqueezenet:
 
         self._ckpt_hdl = CheckpointHandler(self.cfg)
 
+        return
+
+    def load_checkpointables(self, ckpt2load='latest'):
+        """
+        Create entities that needs to be stored by checkpoints (if enabled).
+        Also load the stored entity value from stored checkpoint and fill-into memory.
+        :param ckpt2load:
+        :return:
+        """
+        self.net = self._set_network_for_training()
+        self.opt = tf.keras.optimizers.Adam()  # Optimizer
+
+        self._ckpt_hdl.load_checkpoint({'net': self.net, 'opt': self.opt}, ckpt2load)
         return
 
     @tf.function
@@ -75,22 +91,10 @@ class DevelopSqueezenet:
         """
         self.logger.info('Training with Tensorflow API')
 
-        # Model saver checkpoint
-        if self.cfg.train.enable_save_best_model is True:
-            best_model_value = tf.Variable(initial_value=np.inf, trainable=False, dtype=tf.float32)
-            saver_ckpt = tf.train.Checkpoint(best_model_value=best_model_value)
-            saver_ckpt_mngr = tf.train.CheckpointManager(checkpoint=saver_ckpt,
-                                                         directory=self.cfg.directories.dir_ckpt_save_model,
-                                                         max_to_keep=1)
-            if saver_ckpt_mngr.latest_checkpoint:
-                saver_ckpt_status = saver_ckpt.restore(saver_ckpt_mngr.latest_checkpoint)
-                saver_ckpt_status.assert_consumed()
-
-            self.logger.info('Saver checkpoint: Min validation loss: {:f}'.format(best_model_value.numpy()))
+        self.load_checkpointables()  # Create network. Also load values from checkpoint if checkpoints are enabled.
 
         # Model training checkpoints
         if self.cfg.train.enable_chekpoints:
-            self._ckpt_hdl.load_checkpoint(self.net, self.opt)
             checkpoint_verified = False
         else:
             checkpoint_verified = True
@@ -168,23 +172,6 @@ class DevelopSqueezenet:
                 tf.summary.scalar('Validation top-5 accuracy', val_top5_acc)  # Log to tensorboard
                 self.logger.info('Epoch {:3d} Validation Loss: {:f} Accuracy Top-1: {:.1f}% Top-5: {:.1f}%'
                                  .format(epoch_idx, val_loss, val_top1_acc * 100, val_top5_acc * 100))
-
-            # Check if this is the best model so far, and if so, then save it
-            if self.cfg.train.enable_save_best_model is True:
-                old_value = best_model_value
-                if self.cfg.train.best_model_criteria == 'train_loss':
-                    new_value = running_loss
-                elif self.cfg.train.best_model_criteria == 'val_loss':
-                    new_value = val_loss
-                else:
-                    assert False  # Unsupported self.cfg.train.best_model_criteria
-
-                if new_value < old_value:
-                    self.logger.info('Saver checkpoint: Old: {:f} New: {:f}. Updating saved model in: {:s}'.
-                                     format(old_value.read_value(), new_value, self.cfg.directories.dir_model))
-                    best_model_value.assign(new_value)  # Update
-                    saver_ckpt_mngr.save()  # Save checkpoint with newly found best value
-                    tf.saved_model.save(self.net, self.cfg.directories.dir_model)  # Save model
 
         return
 
@@ -270,23 +257,31 @@ class DevelopSqueezenet:
 
         return
 
+    def _load_model(self):
+
+
+        return
+
     def _run_eval_mode(self):
         """
         Evaluates the model on dataset
         :return: None
         """
-        if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
-            raise FileNotFoundError('Could not find a saved model in directory: {:s}'
-                                    .format(self.cfg.directories.dir_model))
+        if 1:
+            self.load_checkpointables('latest')
+        else:
+            if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
+                raise FileNotFoundError('Could not find a saved model in directory: {:s}'
+                                        .format(self.cfg.directories.dir_model))
 
-        self.net = tf.saved_model.load(self.cfg.directories.dir_model)
-
-        y_pred = np.nan * np.ones(shape=(len(self._pipeline['test']), self.cfg.dataset.num_classes), dtype=np.float32)
-        y_true = np.nan * np.ones(shape=(len(self._pipeline['test']), self.cfg.dataset.num_classes), dtype=np.float32)
+            self.net = tf.saved_model.load(self.cfg.directories.dir_model)
 
         self.logger.info('Running evaluation on dataset portion: {:s}'.format(self.cfg.eval.portion))
-        self._pipeline[self.cfg.eval.portion] = get_input_pipeline(self.cfg, self.cfg.eval.portion)
+        self._pipeline[self.cfg.eval.portion] = get_input_pipeline(self.cfg, 'inference', self.cfg.eval.portion)
         dataset = self._pipeline[self.cfg.eval.portion].get_dataset()
+
+        y_pred = np.nan * np.ones(shape=(len(self._pipeline[self.cfg.eval.portion]), self.cfg.dataset.num_classes), dtype=np.float32)
+        y_true = np.nan * np.ones(shape=(len(self._pipeline[self.cfg.eval.portion]), self.cfg.dataset.num_classes), dtype=np.float32)
 
         # Loop over batches in the epoch
         idx = 0  # Index of samples processed so far
@@ -300,8 +295,10 @@ class DevelopSqueezenet:
             idx += samples_in_batch
 
         loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
-        acc = eval.get_categorical_accuracy(y_true, y_pred)
-        self.logger.info('Loss: {:f} Categorical accuracy: {:.1f}%'.format(loss, acc * 100))
+        y_true_label = tf.math.argmax(y_true, axis=1)  # 1-D tensor of integer labels. Values are 0-999
+        top1_acc, top5_acc = eval.get_accuracy(y_true_label, y_pred)
+        self.logger.info('Loss: {:f} Accuracy Top-1: {:.1f}% Top-5: {:.1f}%'
+                         .format(loss, top1_acc * 100, top5_acc * 100))
 
         return
 

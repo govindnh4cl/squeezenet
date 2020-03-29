@@ -49,10 +49,6 @@ def _set_directories(cfg):
         cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
         os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
         logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_save_best_model is True:
-        cfg.directories.dir_ckpt_save_model = os.path.join(cfg.directories.dir_ckpt, 'save_best_model')
-        os.makedirs(cfg.directories.dir_ckpt_save_model, exist_ok=True)
-        logger.debug('Checkpoint save best model directory: {:s}'.format(cfg.directories.dir_ckpt))
 
     return
 
@@ -192,11 +188,7 @@ def _set_dataset_params(cfg):
 
 def _set_misc(cfg):
     if cfg.validation.enable is False:
-        if cfg.train.enable_save_best_model == 'val_loss':
-            raise ValueError('Bad config parameters: validation.enable is false and '
-                             'train.enable_save_best_model is still set to "val_loss". '
-                             'Either set validation.enable to true or change train.enable_save_best_model '
-                             'to something else.')
+        pass
 
 
 def get_config(args):

@@ -294,10 +294,12 @@ class DevelopSqueezenet:
             y_pred[idx: idx + samples_in_batch] = batch_y_pred
             idx += samples_in_batch
 
+            # Print status after each batch
+            print('\rEvaluating batch: {:d}'.format(batch_idx), end='')
+
         loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
-        y_true_label = tf.math.argmax(y_true, axis=1)  # 1-D tensor of integer labels. Values are 0-999
-        top1_acc, top5_acc = eval.get_accuracy(y_true_label, y_pred)
-        self.logger.info('Loss: {:f} Accuracy Top-1: {:.1f}% Top-5: {:.1f}%'
+        top1_acc, top5_acc = eval.get_accuracy(y_true, y_pred)
+        self.logger.info('Loss: {:f} Accuracy Top-1: {:.2f}% Top-5: {:.2f}%'
                          .format(loss, top1_acc * 100, top5_acc * 100))
 
         return

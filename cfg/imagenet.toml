@@ -20,14 +20,15 @@ title = "Config file for running model with Imagenet"
 [imagenet]
 # ----- Only used if dataset is 'imagenet' -----
     # Path to text file containing 1,281,167 image paths
-    train_img_paths = '/hd1/datasets/imagenet/input_list_train.txt'
-    # Path to text file containing 50,000 image paths
-    val_img_paths = '/hd1/datasets/imagenet/input_list_val.txt'
-    # Path to text file containing 50,000 image class labels. Values are in range 1 to 1000
-    val_labels = '/hd1/datasets/imagenet/ILSVRC2012_devkit_t12/data/ILSVRC2012_validation_ground_truth.txt'
+    train_img_paths = '/home/govind/work/imagenet/input_list_train.txt'
+
+    # Path to directory containing 50,000 validation images
+    val_img_base_path = '/home/govind/work/imagenet/val'
+    # Path to CSV file: LOC_val_solution.csv
+    val_labels_csv = '/home/govind/work/imagenet/LOC_val_solution.csv'
     # path to json file containing a dictionary mapping WNID (e.g. 'n01440764') to class label (int in range 1 to 1000)
     # This is needed to get class labels of training images from their paths
-    wnid_to_ilsvrc2012_id_path = '/hd1/datasets/imagenet/wnid_to_ilsvrc2012_id.json'
+    wnid_to_ilsvrc2012_id_path = '/home/govind/work/imagenet/wnid_to_ilsvrc2012_id.json'
 
     num_classes = 1000
 
@@ -46,13 +47,10 @@ title = "Config file for running model with Imagenet"
     num_epochs = 2              # Count epochs to further train for
     enable_summary = false       # Enable/disable tensorboard summary for training
 
-    enable_train_chekpoints = false  # Whether to enable storing checkpoints with n/w parameters while training
+    enable_chekpoints = true  # Whether to enable storing checkpoints with n/w parameters while training
     # Checkpoint parameters below are only used if enable_checkpoints is true
     checkpoint_interval = 1  # Epoch interval after which checkpoint must be saved
     keep_n_checkpoints = 1  # Count of checkpoints to keep
-
-    enable_save_best_model = false  # Whether to save model with best weights
-    best_model_criteria = 'val_loss'  # Supported 'train_loss', 'val_loss'
 
     enable_intermittent_sleep = true
     sleep_interval = 1800  # In seconds. Interval after which to sleep
@@ -61,7 +59,7 @@ title = "Config file for running model with Imagenet"
 # Validation phase parameters
 # ----- Only used if misc.mode is 'train' -----
 [validation]
-    enable = false              # Enables or disables validation set evaluation during training
+    enable = true              # Enables or disables validation set evaluation during training
 
     # ----- parameters below are ignored if enable is false -----
 
@@ -72,9 +70,20 @@ title = "Config file for running model with Imagenet"
 # Eval phase parameters
 # ----- Only used if misc.mode is 'eval' -------
 [eval]
-    portion = 'test'            # Evaluates the model's performance on specified portion
+    portion = 'val'            # Evaluates the model's performance on specified portion
                                 # Portion of entire dataset to use. Supported: 'train', 'val', 'test'
     batch_size = 64
+
+    # Supported value:
+    #   'checkpoint': Load from checkpoint as specified by eval.checkpoint_id
+    #   'saved': Load model from a saved model in directory directories.dir_model
+    load_from = 'saved'  # Supported: 'checkpoint', 'saved'
+
+    # If eval.load_from is 'checkpoint', then this is used to specify which checkpoint to load from
+    # Searches for checkpoints in directory specified by directories.dir_ckpt
+    #   'latest': Latest checkpoint
+    #   <int>: checkpoint inetger id
+    checkpoint_id = 'latest'
 
 
 

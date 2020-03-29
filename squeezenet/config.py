@@ -45,14 +45,10 @@ def _set_directories(cfg):
 
     os.makedirs(cfg.directories.dir_ckpt, exist_ok=True)
     logger.debug('Checkpoint directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_train_chekpoints is True:
+    if cfg.train.enable_chekpoints is True:
         cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
         os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
         logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_save_best_model is True:
-        cfg.directories.dir_ckpt_save_model = os.path.join(cfg.directories.dir_ckpt, 'save_best_model')
-        os.makedirs(cfg.directories.dir_ckpt_save_model, exist_ok=True)
-        logger.debug('Checkpoint save best model directory: {:s}'.format(cfg.directories.dir_ckpt))
 
     return
 
@@ -107,9 +103,9 @@ def _test_dataset_params(cfg):
         # Check if all needed file are found
         needed_files = list()
 
-        files = dict()
+        files = dict()  # List of needed files/directories
         files['train'] = [cfg.imagenet.train_img_paths, cfg.imagenet.wnid_to_ilsvrc2012_id_path]
-        files['val'] = [cfg.imagenet.val_img_paths, cfg.imagenet.val_labels]
+        files['val'] = [cfg.imagenet.val_img_base_path, cfg.imagenet.val_labels_csv]
         files['test'] = []  # TODO: implement
 
         if cfg.misc.mode == 'train':
@@ -192,11 +188,9 @@ def _set_dataset_params(cfg):
 
 def _set_misc(cfg):
     if cfg.validation.enable is False:
-        if cfg.train.enable_save_best_model == 'val_loss':
-            raise ValueError('Bad config parameters: validation.enable is false and '
-                             'train.enable_save_best_model is still set to "val_loss". '
-                             'Either set validation.enable to true or change train.enable_save_best_model '
-                             'to something else.')
+        pass
+
+    # TODO: Check eval mode parameters
 
 
 def get_config(args):

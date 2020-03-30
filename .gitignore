@@ -6,6 +6,14 @@ logs
 models
 tensorboard
 
+
+# Jupyter Notebooks
+*.ipynb
+
+# Data files
+*.json
+*.csv
+
 # images
 *.jpg
 *.png

@@ -45,14 +45,10 @@ def _set_directories(cfg):
 
     os.makedirs(cfg.directories.dir_ckpt, exist_ok=True)
     logger.debug('Checkpoint directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_train_chekpoints is True:
+    if cfg.train.enable_chekpoints is True:
         cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
         os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
         logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_save_best_model is True:
-        cfg.directories.dir_ckpt_save_model = os.path.join(cfg.directories.dir_ckpt, 'save_best_model')
-        os.makedirs(cfg.directories.dir_ckpt_save_model, exist_ok=True)
-        logger.debug('Checkpoint save best model directory: {:s}'.format(cfg.directories.dir_ckpt))
 
     return
 
@@ -90,20 +86,54 @@ def _set_hardware(cfg):
     return
 
 
+def _test_dataset_params(cfg):
+    """
+    Test for errors in dataset parameters
+    :param cfg: An EasyDict dictionary for configuration parameters
+    :return: None
+    """
+    # ----------- Tests for CIFAR10 dataset ------------
+    if cfg.dataset.dataset == 'cifar10':
+        assert cfg.cifar10.num_classes == 10  # Sanity check
+
+    # ----------- Tests for ImageNet dataset -----------
+    elif cfg.dataset.dataset == 'imagenet':
+        assert cfg.imagenet.num_classes == 1000  # Sanity check
+
+        # Check if all needed file are found
+        needed_files = list()
+
+        files = dict()  # List of needed files/directories
+        files['train'] = [cfg.imagenet.train_img_paths, cfg.imagenet.wnid_to_ilsvrc2012_id_path]
+        files['val'] = [cfg.imagenet.val_img_base_path, cfg.imagenet.val_labels_csv]
+        files['test'] = []  # TODO: implement
+
+        if cfg.misc.mode == 'train':
+            needed_files += files['train']
+
+            if cfg.validation.enable is True:
+                needed_files += files['val']
+
+        elif cfg.misc.mode == 'eval':
+            needed_files += files[cfg.eval.portion]
+
+        for file_path in needed_files:
+            if not os.path.exists(file_path):
+                raise ValueError('Expected file: {:s} not found.'.format(file_path))
+
+    # ------------ Unsupported dataset -------------------
+    else:
+        raise ValueError('Unsupported dataset.dataset in configuration file: {:}'.format(cfg.dataset.dataset))
+
+
 def _set_dataset_params(cfg):
     """
     SAdds dataset specific parameters in cfg
     :param cfg: An EasyDict dictionary for configuration parameters
     :return: None
     """
-    if cfg.dataset.dataset not in ('cifar10', 'imagenet'):
-        raise ValueError('Unsupported dataset.dataset in configuration file: {:}'.format(cfg.dataset.dataset))
-
     # Set num_classes based on dataset used
-    if cfg.dataset.dataset == 'cifar10':
-        cfg.dataset.num_classes = 10
-    elif cfg.dataset.dataset == 'imagenet':
-        cfg.dataset.num_classes = 1000
+    cfg.dataset.num_classes = cfg[cfg.dataset.dataset].num_classes
 
     # Hold parameters for portions of datasets
     cfg.dataset.train = EasyDict()
@@ -150,16 +180,17 @@ def _set_dataset_params(cfg):
         if cfg.dataset.test.enable:
             cfg.dataset.test.batch_size = cfg.eval.batch_size
 
+    # Test if dataset specific parameters are correct
+    _test_dataset_params(cfg)  # Test for errors in dataset parameters
+
     return
 
 
 def _set_misc(cfg):
     if cfg.validation.enable is False:
-        if cfg.train.enable_save_best_model == 'val_loss':
-            raise ValueError('Bad config parameters: validation.enable is false and '
-                             'train.enable_save_best_model is still set to "val_loss". '
-                             'Either set validation.enable to true or change train.enable_save_best_model '
-                             'to something else.')
+        pass
+
+    # TODO: Check eval mode parameters
 
 
 def get_config(args):

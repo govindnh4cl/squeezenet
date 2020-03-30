@@ -3,6 +3,10 @@ with warnings.catch_warnings():
     warnings.simplefilter(action='ignore', category=FutureWarning)  # Disable FutureWarning in TF's prints
     import tensorflow as tf
 
+
+from squeezenet.utils import set_random_seed
+set_random_seed(0)  # TODO: Take it from the config file?
+
 from my_logger import setup_logger, get_logger
 from squeezenet.arg_parsing import parse_args
 from squeezenet.develop_squeezenet import DevelopSqueezenet

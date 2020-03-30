@@ -1,4 +1,4 @@
-title = "Config file for running model with cifar10"
+title = "Config file for running model with Imagenet"
 
 
 [misc]
@@ -10,16 +10,27 @@ title = "Config file for running model with cifar10"
     device = 'gpu'                  # Select the device to be used. Supported: 'gpu', 'cpu'
     num_gpu = 1                     # Count of GPUs to use. Supported: 1. Ignored if device is 'cpu'
     allow_memory_growth = true      # If true, then allocates memory on need basis. Ignored if device is 'cpu'
-    force_eager = true  # Force tf.function() to run eagerly. Will slow down processing, but enable putting breakpoints for debugging
+    force_eager = false  # Force tf.function() to run eagerly. Will slow down processing, but enable putting breakpoints for debugging
 
 
 [dataset]
-    dataset = 'cifar10'             # Dataset to use. Supported: 'cifar10', 'imagenet'
+    dataset = 'imagenet'             # Dataset to use. Supported: 'cifar10', 'imagenet'
 
 
-[cifar10]
-# ----- Only used if dataset is 'cifar10' -----
-    num_classes = 10
+[imagenet]
+# ----- Only used if dataset is 'imagenet' -----
+    # Path to text file containing 1,281,167 image paths
+    train_img_paths = '/home/govind/work/imagenet/input_list_train.txt'
+
+    # Path to directory containing 50,000 validation images
+    val_img_base_path = '/home/govind/work/imagenet/val'
+    # Path to CSV file: LOC_val_solution.csv
+    val_labels_csv = '/home/govind/work/imagenet/LOC_val_solution.csv'
+    # path to json file containing a dictionary mapping WNID (e.g. 'n01440764') to class label (int in range 1 to 1000)
+    # This is needed to get class labels of training images from their paths
+    wnid_to_ilsvrc2012_id_path = '/home/govind/work/imagenet/wnid_to_ilsvrc2012_id.json'
+
+    num_classes = 1000
 
 [directories]
     # Paths can either be absolute or relative to repository directory
@@ -32,7 +43,7 @@ title = "Config file for running model with cifar10"
 # Training phase parameters
 # ----- Only used if misc.mode is 'train' -----
 [train]
-    batch_size = 64
+    batch_size = 32
     num_epochs = 2              # Count epochs to further train for
     enable_summary = false       # Enable/disable tensorboard summary for training
 
@@ -41,6 +52,9 @@ title = "Config file for running model with cifar10"
     checkpoint_interval = 1  # Epoch interval after which checkpoint must be saved
     keep_n_checkpoints = 1  # Count of checkpoints to keep
 
+    enable_intermittent_sleep = true
+    sleep_interval = 1800  # In seconds. Interval after which to sleep
+    sleep_duration = 300  # In seconds. Duration for which to sleep
 
 # Validation phase parameters
 # ----- Only used if misc.mode is 'train' -----
@@ -56,9 +70,20 @@ title = "Config file for running model with cifar10"
 # Eval phase parameters
 # ----- Only used if misc.mode is 'eval' -------
 [eval]
-    portion = 'test'            # Evaluates the model's performance on specified portion
+    portion = 'val'            # Evaluates the model's performance on specified portion
                                 # Portion of entire dataset to use. Supported: 'train', 'val', 'test'
     batch_size = 64
+
+    # Supported value:
+    #   'checkpoint': Load from checkpoint as specified by eval.checkpoint_id
+    #   'saved': Load model from a saved model in directory directories.dir_model
+    load_from = 'saved'  # Supported: 'checkpoint', 'saved'
+
+    # If eval.load_from is 'checkpoint', then this is used to specify which checkpoint to load from
+    # Searches for checkpoints in directory specified by directories.dir_ckpt
+    #   'latest': Latest checkpoint
+    #   <int>: checkpoint inetger id
+    checkpoint_id = 'latest'
 
 
 

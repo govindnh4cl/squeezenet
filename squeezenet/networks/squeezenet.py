@@ -4,7 +4,9 @@ from __future__ import print_function
 
 from abc import ABC
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv2D, AveragePooling2D, MaxPooling2D, BatchNormalization, Activation
+from tensorflow.keras.initializers import RandomNormal
+from tensorflow.keras.layers import Input, Conv2D, GlobalAveragePooling2D, MaxPooling2D, \
+    BatchNormalization, Activation, Dropout, AveragePooling2D
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.models import Model
 
@@ -22,49 +24,52 @@ class FireModule(tf.keras.Model):
             self.channel_axis = 3
 
         # --------------- Squeeze ----------------
-        self.s_0 = Conv2D(
+        self.s = Conv2D(
             squeeze_depth,
             [1, 1],
             strides=1,
             activation='relu',
-            kernel_regularizer=l2(weight_decay),
             data_format=data_format,
-            padding='same')
+            padding='same',
+            kernel_initializer='glorot_uniform')
 
-        self.s_1 = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=self.channel_axis)
+        self.bn_s = BatchNormalization()
 
         # --------------- Expand ----------------
-        self.e1x1_0 = Conv2D(
+        self.e1x1 = Conv2D(
             expand_depth,
             [1, 1],
             strides=1,
             activation='relu',
-            kernel_regularizer=l2(weight_decay),
             data_format=data_format,
-            padding='same')
+            padding='same',
+            kernel_initializer='glorot_uniform')
 
-        self.e1x1_1 = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=self.channel_axis)
+        self.bn_e1x1 = BatchNormalization()
 
-        self.e3x3_0 = Conv2D(
+        self.e3x3 = Conv2D(
             expand_depth,
             [3, 3],
+            strides=1,
             activation='relu',
-            kernel_regularizer=l2(weight_decay),
             data_format=data_format,
-            padding='same')
+            padding='same',
+            kernel_initializer='glorot_uniform')
 
-        self.e3x3_1 = BatchNormalization(momentum=batch_norm_decay, fused=True, axis=self.channel_axis)
+        self.bn_e3x3 = BatchNormalization()
+
+        # TODO: bn_e1x1 and bn_e3x3 can be replaced with a single BN layer
+
         return
 
-    def call(self, input_tensor, training):
-        s_out = self.s_0(input_tensor)
-        s_out = self.s_1(s_out, training=training)  # Batch normalization needs to know if this is training phase
+    def call(self, input_tensor):
+        # TODO: Batch normalization layers need to know if this is during 'taining' or 'inference'
 
-        e_out_0 = self.e1x1_0(s_out)
-        e_out_0 = self.e1x1_1(e_out_0, training=training)
+        s_out = self.s(input_tensor)
 
-        e_out_1 = self.e3x3_0(s_out)
-        e_out_1 = self.e3x3_1(e_out_1, training=training)
+        s_out = self.bn_s(self.s(input_tensor))
+        e_out_0 = self.bn_e1x1(self.e1x1(s_out))
+        e_out_1 = self.bn_e3x3(self.e3x3(s_out))
 
         return tf.concat([e_out_0, e_out_1], self.channel_axis)
 
@@ -85,50 +90,82 @@ class Squeezenet(ABC, tf.keras.Model):
         self._weight_decay = cfg.model.weight_decay
         self._batch_norm_decay = cfg.model.batch_norm_decay
         self._input_shape = None
-        self._training = False
 
         return
 
-    @property
-    def training(self):
-        return self._training
-
-    @training.setter
-    def training(self, training):
-        assert type(training) == bool
-        self._training = training
-
 
 class Squeezenet_Imagenet(Squeezenet):
-    """Original squeezenet architecture for 224x224 images."""
+    """Original squeezenet architecture for imagenet """
     def __init__(self, cfg):
         Squeezenet.__init__(self, cfg, 'squeezenet_imagenet')
-        self._input_shape = (3, 224, 224)
+        num_classes = 1000
 
-    def _define(self, num_classes=1000):
-        inp = Input(shape=self._input_shape)
+        # Axis that represents channel in the feature map
+        if self.data_format == 'channels_first':
+            self.channel_axis = 1
+        else:
+            self.channel_axis = 3
 
-        net = Conv2D(96, [7, 7], strides=2, activation='relu', kernel_regularizer=l2(self._weight_decay), data_format='channels_first', padding='same')(inp)
+        self.l = Input(shape=(224, 224, 3), batch_size=None, dtype=tf.float32)  # TODO: Is this layer really needed?
 
-        net = BatchNormalization(momentum=self._batch_norm_decay, fused=True, axis=1)(net)
-        net = MaxPooling2D([3, 3], strides=2, data_format='channels_first')(net)
-        net = fire_module(net, 16, 64, self._batch_norm_decay, self._weight_decay)
-        net = fire_module(net, 16, 64, self._batch_norm_decay, self._weight_decay)
-        net = fire_module(net, 32, 128, self._batch_norm_decay, self._weight_decay)
-        net = MaxPooling2D([3, 3], strides=2, data_format='channels_first')(net)
-        net = fire_module(net, 32, 128, self._batch_norm_decay, self._weight_decay)
-        net = fire_module(net, 48, 192, self._batch_norm_decay, self._weight_decay)
-        net = fire_module(net, 48, 192, self._batch_norm_decay, self._weight_decay)
-        net = fire_module(net, 64, 256, self._batch_norm_decay, self._weight_decay)
-        net = MaxPooling2D([3, 3], strides=2, data_format='channels_first')(net)
-        net = fire_module(net, 64, 256, self._batch_norm_decay, self._weight_decay)
-        net = Conv2D(num_classes, [1, 1], strides=1, activation = 'relu', data_format='channels_first', padding='same')(net)
-        net = BatchNormalization(momentum=self._batch_norm_decay, fused=True, axis=1)(net)
-        net = AveragePooling2D([13, 13], strides=1, data_format='channels_first')(net)
-        logits = tf.squeeze(net, [2], name='logits')
-        out = Activation('softmax')(logits)
+        self.l_0 = Conv2D(96, [7, 7], strides=2, activation='relu', data_format=self.data_format, padding='same')
+        self.bn_l_0 = BatchNormalization()
+        self.l_1 = MaxPooling2D([3, 3], strides=2, data_format=self.data_format)
 
-        model = Model(inputs=inp, outputs=out)
+        self.l_2 = FireModule(16, 64, self.data_format, None, None)
+        self.l_3 = FireModule(16, 64, self.data_format, None, None)
+        self.l_4 = FireModule(32, 128, self.data_format, None, None)
+        self.l_5 = MaxPooling2D([3, 3], strides=2, data_format=self.data_format)
+
+        self.l_6 = FireModule(32, 128, self.data_format, None, None)
+        self.l_7 = FireModule(48, 192, self.data_format, None, None)
+        self.l_8 = FireModule(48, 192, self.data_format, None, None)
+        self.l_9 = FireModule(64, 256, self.data_format, None, None)
+        self.l_10 = MaxPooling2D([3, 3], strides=2, data_format=self.data_format)
+
+        self.l_11 = FireModule(64, 256, self.data_format, None, None)
+        self.l_12 = Dropout(rate=0.5)
+        self.l_13 = Conv2D(num_classes, [1, 1], strides=1, activation='relu', data_format=self.data_format, padding='same')
+        self.bn_l_13 = BatchNormalization()
+
+        self.l_14 = GlobalAveragePooling2D(data_format=self.data_format)
+        self.l_15 = Activation('softmax')
+
+        return
+
+    # TODO: This input signature is preventing us from switching to channels_first format
+    @tf.function(input_signature=[tf.TensorSpec([None, 224, 224, 3], tf.float32)])
+    def call(self, batch_x):
+        x = batch_x
+
+        x = self.l_0(x)
+        x = self.bn_l_0(x)
+        x = self.l_1(x)
+
+        x = self.l_2(x)
+        x = self.l_3(x)
+        x = self.l_4(x)
+        x = self.l_5(x)
+
+        x = self.l_6(x)
+        x = self.l_7(x)
+        x = self.l_8(x)
+        x = self.l_9(x)
+        x = self.l_10(x)
+
+        x = self.l_11(x)
+        x = self.l_12(x)
+        x = self.l_13(x)
+        x = self.bn_l_13(x)
+
+        x = self.l_14(x)
+        out = self.l_15(x)
+
+        return out
+
+    def get_keras_model(self):
+        inp = Input(shape=(224, 224, 3))
+        model = Model(inputs=inp, outputs=self.call(inp))
         return model
 
 

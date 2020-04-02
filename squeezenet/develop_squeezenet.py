@@ -158,8 +158,7 @@ class DevelopSqueezenet:
                     idx += samples_in_batch
 
                 val_loss = tf.reduce_mean(self.loss_fn(y_true, y_pred))
-                y_true_label = tf.math.argmax(y_true, axis=1)  # 1-D tensor of integer labels. Values are 0-999
-                val_top1_acc, val_top5_acc = eval.get_accuracy(y_true_label, y_pred)
+                val_top1_acc, val_top5_acc = eval.get_accuracy(y_true, y_pred)
                 tf.summary.scalar('Validation loss', val_loss)  # Log to tensorboard
                 tf.summary.scalar('Validation top-1 accuracy', val_top1_acc)  # Log to tensorboard
                 tf.summary.scalar('Validation top-5 accuracy', val_top5_acc)  # Log to tensorboard
@@ -225,7 +224,7 @@ class DevelopSqueezenet:
         train_dataset = self._pipeline['train'].get_dataset()
 
         if self.cfg.validation.enable:
-            self._pipeline['val'] = get_input_pipeline(self.cfg, 'inference', 'validation')
+            self._pipeline['val'] = get_input_pipeline(self.cfg, 'inference', 'val')
             val_dataset = self._pipeline['val'].get_dataset()
         else:
             self._pipeline['val'] = None

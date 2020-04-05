@@ -30,10 +30,11 @@ class CheckpointHandler:
         :param to_store: A dictionary of Python object stored in checkpoints
         :param ckpt2load: Specify which checkpoint to load. Supported values
             'latest': Use the most recent checkpoint
-            'scratch': Don't load from any checkpoint
             <int>: Specify the integer ID of the checkpoint to load from
         :return: None
         """
+        assert (ckpt2load == 'latest') or isinstance(ckpt2load, int)  # Sanity check
+
         self._ckpt_id = tf.Variable(initial_value=-1, trainable=False, dtype=tf.int64)  # Stores epoch ID
         self._ckpt = tf.train.Checkpoint(model=to_store['net'], ckpt_counter=self._ckpt_id, optimizer=to_store['opt'])
 
@@ -47,10 +48,6 @@ class CheckpointHandler:
                 self._logger.info('No existing checkpoint found.')
             else:
                 ckpt_id = int(ckpt_path.split('-')[-1])
-
-        elif ckpt2load == 'scratch':
-            # Nothing needs to be done as networks weights will be randomly initialized
-            ckpt_path = None
 
         else:
             ckpt_id = int(ckpt2load)

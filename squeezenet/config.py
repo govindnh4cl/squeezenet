@@ -45,10 +45,10 @@ def _set_directories(cfg):
 
     os.makedirs(cfg.directories.dir_ckpt, exist_ok=True)
     logger.debug('Checkpoint directory: {:s}'.format(cfg.directories.dir_ckpt))
-    if cfg.train.enable_chekpoints is True:
-        cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
-        os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
-        logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
+    # TODO: remove this extra 'train_params' directory
+    cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
+    os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
+    logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
 
     return
 
@@ -187,10 +187,47 @@ def _set_dataset_params(cfg):
 
 
 def _set_misc(cfg):
-    if cfg.validation.enable is False:
-        pass
+    if cfg.train.enable_chekpoints is True:
+        if not (cfg.train.checkpoint_id in ('latest', 'none') or isinstance(cfg.train.checkpoint_id, int)):
+            err_msg = "Bad configuration. model_saver.checkpoint_id should be either of  'latest', 'none' "\
+                      "or an integer. Found: {:}".format(cfg.train.checkpoint_id)
 
-    # TODO: Check eval mode parameters
+            raise Exception(err_msg)
+            pass
+    else:
+        cfg.train.checkpoint_id = 'none'  # Force set to not load from checkpoint
+
+    return
+
+
+def _set_eval(cfg):
+    if cfg.misc.mode != 'eval':
+        return  # Nothing to be done here
+
+    if cfg.eval.load_from not in ('checkpoint', 'saved'):
+        err_msg = "Bad configuration. eval.load_from should either be 'checkpoint' or 'saved'. Found: {:} "\
+            .format(cfg.eval.load_from)
+
+        raise Exception(err_msg)
+
+    if not (cfg.eval.checkpoint_id in ('latest', 'none') or isinstance(cfg.eval.checkpoint_id, int)):
+        err_msg = "Bad configuration. model_saver.checkpoint_id should be either of  'latest', 'none' "\
+                  "or an integer. Found: {:}".format(cfg.eval.checkpoint_id)
+
+        raise Exception(err_msg)
+    else:
+        cfg.eval.checkpoint_id = 'none'  # Force set to not load from checkpoint
+
+    return
+
+
+def _set_model_saver(cfg):
+    if not (cfg.model_saver.checkpoint_id in ('latest', 'none') or isinstance(cfg.model_saver.checkpoint_id, int)):
+        err_msg = "Bad configuration. model_saver.checkpoint_id should be either of  'latest', 'none' "\
+                  "or an integer. Found: {:}".format(cfg.model_saver.checkpoint_id)
+
+        raise Exception(err_msg)
+        pass
 
 
 def get_config(args):
@@ -208,6 +245,7 @@ def get_config(args):
     _set_directories(cfg)  # Set paths to all necessary directories
     _set_hardware(cfg)  # Set device to be used
     _set_dataset_params(cfg)  # Set dataset and train/val/test set related parameters
-
+    _set_eval(cfg)
+    _set_model_saver(cfg)
     return cfg
 

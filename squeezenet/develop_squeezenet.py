@@ -27,17 +27,23 @@ class DevelopSqueezenet:
 
         return
 
-    def load_checkpointables(self, ckpt2load='latest'):
+    def load_checkpointables(self, ckpt2load):
         """
         Create entities that needs to be stored by checkpoints (if enabled).
         Also load the stored entity value from stored checkpoint and fill-into memory.
-        :param ckpt2load:
+        :param ckpt2load: An identifier to represent which checkpoint to load from:
+                'none': Do not load from a checkpoint
+                'latest': Latest checkpoint
+                <int>: checkpoint integer id
         :return:
         """
         self.net = self._set_network_for_training()
         self.opt = tf.keras.optimizers.SGD(0.04)  # Optimizer
 
-        self._ckpt_hdl.load_checkpoint({'net': self.net, 'opt': self.opt}, ckpt2load)
+        if ckpt2load == 'none':
+            self.logger.info('Not looking for a checkpoint.')
+        else:
+            self._ckpt_hdl.load_checkpoint({'net': self.net, 'opt': self.opt}, ckpt2load)
         return
 
     @tf.function  # For faster training speed
@@ -67,12 +73,15 @@ class DevelopSqueezenet:
         """
         self.logger.info('Training with Tensorflow API')
 
-        self.load_checkpointables()  # Create network. Also load values from checkpoint if checkpoints are enabled.
+        # Create network. Also load values from checkpoint if checkpoints are enabled.
+        self.load_checkpointables(self.cfg.train.checkpoint_id)
+
         if self.cfg.train.enable_chekpoints:
             checkpoint_verified = False
         else:
             checkpoint_verified = True
 
+        # TODO: This is no longer required
         self.net.training = True  # Enable training mode
 
         # Used for manually updating learning rate every couple of hours during training

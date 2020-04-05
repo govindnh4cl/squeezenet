@@ -51,6 +51,12 @@ title = "Config file for running model with Imagenet"
     # Checkpoint parameters below are only used if enable_checkpoints is true
     checkpoint_interval = 1  # Epoch interval after which checkpoint must be saved
     keep_n_checkpoints = 1  # Count of checkpoints to keep
+    # Searches for checkpoints in directory specified by directories.dir_ckpt
+    # Specify the ckeckpoint from which to save the model
+    #   'none': Do not load from a stored checkpoint. This allows storing new ckpts while also starting from scratch
+    #   'latest': Latest checkpoint
+    #   <int>: checkpoint integer id
+    checkpoint_id = 'latest'
 
     enable_intermittent_sleep = true
     sleep_interval = 1800  # In seconds. Interval after which to sleep
@@ -82,9 +88,18 @@ title = "Config file for running model with Imagenet"
     # If eval.load_from is 'checkpoint', then this is used to specify which checkpoint to load from
     # Searches for checkpoints in directory specified by directories.dir_ckpt
     #   'latest': Latest checkpoint
-    #   <int>: checkpoint inetger id
+    #   <int>: checkpoint integer id
     checkpoint_id = 'latest'
 
+
+# Config parameters for the scripts/save_model.py script
+[model_saver]
+    # Searches for checkpoints in directory specified by directories.dir_ckpt
+    # Specify the ckeckpoint from which to save the model
+    #   'none': Do not load from a stored checkpoint. We should get about 0.1% top-1 accuracy with Imagenet with this
+    #   'latest': Latest checkpoint
+    #   <int>: checkpoint integer id
+    checkpoint_id = 'latest'
 
 
 [model]

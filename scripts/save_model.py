@@ -16,8 +16,9 @@ def main():
     logger = get_logger()
     args = parse_args()
     sqz = DevelopSqueezenet(args)
-    sqz.load_checkpointables('latest')  # Load checkpoint
+    sqz.load_checkpointables(sqz.cfg.model_saver.checkpoint_id)  # Load checkpoint
 
+    # A call to make sure that a concrete function exists for this polymorphic function
     concrete_fn = sqz.net.call.get_concrete_function(
         batch_x=tf.TensorSpec([None, 224, 224, 3], tf.float32),
         training=False)

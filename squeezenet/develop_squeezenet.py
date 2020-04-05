@@ -42,17 +42,6 @@ class DevelopSqueezenet:
         self._ckpt_hdl.load_checkpoint({'net': self.net, 'opt': self.opt}, ckpt2load)
         return
 
-    @tf.function
-    def _fwd_pass(self, batch_data):
-        """
-        Runs a forward pass on a batch
-        :param batch_data: input samples in a batch
-        :return: output predictions. Shape: (batch_size, 1)
-        """
-        batch_y_predicted = self.net.call(batch_data)  # Run prediction on batch
-
-        return batch_y_predicted
-
     @tf.function  # For faster training speed
     def _train_step(self, batch_train):
         """
@@ -63,7 +52,7 @@ class DevelopSqueezenet:
         batch_x, batch_y = batch_train[0], batch_train[1]  # Get current batch samples
 
         with tf.GradientTape() as tape:
-            batch_y_pred = self.net.call(batch_x)  # Run prediction on batch
+            batch_y_pred = self.net.call(batch_x, training=True)  # Run prediction on batch
             loss_batch = tf.reduce_mean(self.loss_fn(batch_y, batch_y_pred))  # compute loss
 
         grads = tape.gradient(loss_batch, self.net.trainable_variables)  # compute gradient
@@ -150,7 +139,7 @@ class DevelopSqueezenet:
                 idx = 0  # Index of samples processed so far
                 for batch_idx, val_batch in enumerate(val_dataset):
                     batch_x, batch_y = val_batch[0], val_batch[1]  # Get current batch samples
-                    batch_y_pred = self._fwd_pass(batch_x)
+                    batch_y_pred = self.net.call(batch_x, training=False)
 
                     samples_in_batch = len(batch_y)
                     y_true[idx: idx + samples_in_batch] = batch_y
@@ -279,7 +268,7 @@ class DevelopSqueezenet:
         idx = 0  # Index of samples processed so far
         for batch_idx, batch in enumerate(dataset):
             batch_x, batch_y = batch[0], batch[1]  # Get current batch samples
-            batch_y_pred = self._fwd_pass(batch_x)
+            batch_y_pred = self.net.call(batch_x, False)
 
             samples_in_batch = len(batch_y)
             y_true[idx: idx + samples_in_batch] = batch_y

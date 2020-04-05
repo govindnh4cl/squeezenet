@@ -19,9 +19,9 @@ def main():
     sqz = DevelopSqueezenet(args)
     sqz.load_checkpointables('latest')  # Load checkpoint
 
-    dummy_img = tf.random.uniform(shape=(1, 224, 224, 3), dtype=tf.float32)
-    out = sqz.net(dummy_img)
-    logger.info('Dummy output of shape: {:}'.format(out.shape))
+    concrete_fn = sqz.net.call.get_concrete_function(
+        batch_x=tf.TensorSpec([None, 224, 224, 3], tf.float32),
+        training=False)
 
     logger.info('Saving the model in directory: {:s}'.format(sqz.cfg.directories.dir_model))
     tf.saved_model.save(sqz.net, sqz.cfg.directories.dir_model)  # Save model

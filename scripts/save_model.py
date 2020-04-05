@@ -1,9 +1,8 @@
 import sys
 import os
-import argparse
 import tensorflow as tf
 
-repo_path = os.path.abspath(os.path.dirname(__file__))
+repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(repo_path)
 
 from my_logger import setup_logger, get_logger

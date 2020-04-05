@@ -170,8 +170,8 @@ class DevelopSqueezenet:
         """
         if self.cfg.dataset.dataset == 'imagenet':
             net = Squeezenet_Imagenet(self.cfg)
-        elif self.cfg.dataset.dataset == 'cifar10':
-            net = Squeezenet_CIFAR(self.cfg)
+        else:
+            assert False
 
         return net
 

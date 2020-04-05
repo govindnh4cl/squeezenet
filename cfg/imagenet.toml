@@ -14,7 +14,7 @@ title = "Config file for running model with Imagenet"
 
 
 [dataset]
-    dataset = 'imagenet'             # Dataset to use. Supported: 'cifar10', 'imagenet'
+    dataset = 'imagenet'             # Dataset to use. Supported: 'imagenet'
 
 
 [imagenet]

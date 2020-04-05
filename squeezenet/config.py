@@ -92,12 +92,9 @@ def _test_dataset_params(cfg):
     :param cfg: An EasyDict dictionary for configuration parameters
     :return: None
     """
-    # ----------- Tests for CIFAR10 dataset ------------
-    if cfg.dataset.dataset == 'cifar10':
-        assert cfg.cifar10.num_classes == 10  # Sanity check
-
     # ----------- Tests for ImageNet dataset -----------
-    elif cfg.dataset.dataset == 'imagenet':
+
+    if cfg.dataset.dataset == 'imagenet':
         assert cfg.imagenet.num_classes == 1000  # Sanity check
 
         # Check if all needed file are found

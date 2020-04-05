@@ -24,7 +24,7 @@ def get_input_pipeline(cfg, purpose, portion):
     if cfg.dataset.dataset == 'imagenet':
         from squeezenet.input_imagenet import InputImagenet  # Not done on top to avoid circular dependency
         pipeline = InputImagenet(cfg, purpose, portion)
-    elif cfg.dataset.dataset == 'cifar10':
+    else:
         raise NotImplementedError
 
     return pipeline

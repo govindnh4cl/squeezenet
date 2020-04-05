@@ -19,5 +19,10 @@ tensorboard
 *.png
 *.jpeg
 
+# Archive files
+*.zip
+*.bz2
+*.tar
+*.gzip
 
 

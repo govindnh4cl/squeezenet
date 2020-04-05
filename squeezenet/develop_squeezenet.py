@@ -1,11 +1,9 @@
 import time
 import numpy as np
 import tensorflow as tf
-import time
 
 from my_logger import get_logger
 
-from squeezenet import inputs
 from squeezenet.config import get_config
 from squeezenet.inputs import get_input_pipeline
 from squeezenet.networks.squeezenet import Squeezenet_CIFAR, Squeezenet_Imagenet
@@ -156,41 +154,6 @@ class DevelopSqueezenet:
 
         return
 
-    def _train_keras(self, model, train_dataset):
-        self.logger.info('Training with keras API')
-
-        model.compile(loss='categorical_crossentropy', optimizer=self.opt)
-
-        '''Main Loop'''
-        batch_counter = 0
-        # Loop over epochs
-        for epoch_idx in range(self.cfg.train.num_epochs):
-            start_time = time.time()
-            running_loss = tf.keras.metrics.Mean()  # Running loss per sample
-            # Loop over batches in the epoch
-            for batch_idx, train_batch in enumerate(train_dataset):
-                tf.summary.experimental.set_step(batch_counter)  # Set step for summaries
-
-                batch_x, batch_y = train_batch[0], train_batch[1]  # Get current batch samples
-                batch_loss = model.train_on_batch(batch_x, batch_y)
-
-                running_loss.update_state(batch_loss)
-                tf.summary.scalar('Train loss', batch_loss)
-                tf.summary.scalar('Train running-loss', running_loss.result())
-
-                # Print status after each batch
-                print('\rEpoch {:3d} Batch: {:d} Training Loss {:f}'.
-                      format(epoch_idx, batch_idx, running_loss.result()), end='')
-
-                batch_counter += 1
-
-            self.logger.info('\rEpoch {:3d} Training Loss {:f} Time {:.1f}s'.format(
-                epoch_idx,
-                running_loss.result(),
-                time.time() - start_time))
-
-        return
-
     def _set_network_for_training(self):
         """
         Network factory
@@ -226,13 +189,7 @@ class DevelopSqueezenet:
 
         with train_summary_writer.as_default():
             tf.summary.experimental.set_step(0)  # Set step for summaries
-            if 1:
-                self._train_tf(train_dataset, val_dataset)
-            else:
-                '''Model Creation'''
-                model = self.net.get_keras_model()  # A keras model
-                model.summary()
-                self._train_keras(model, train_dataset)
+            self._train_tf(train_dataset, val_dataset)
 
             self.logger.info('Training complete')
 

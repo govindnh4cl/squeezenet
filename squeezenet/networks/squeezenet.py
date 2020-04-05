@@ -92,8 +92,6 @@ class Squeezenet_Imagenet(Squeezenet):
         # Axis that represents channel in the feature map
         self.channel_axis = 3
 
-        self.l = Input(shape=(224, 224, 3), batch_size=None, dtype=tf.float32)  # TODO: Is this layer really needed?
-
         self.l_0 = Conv2D(96, [7, 7], strides=2, activation='relu', padding='same')
         self.bn_l_0 = BatchNormalization()
         self.l_1 = MaxPooling2D([3, 3], strides=2)
@@ -147,11 +145,6 @@ class Squeezenet_Imagenet(Squeezenet):
         out = self.l_15(x)
 
         return out
-
-    def get_keras_model(self):
-        inp = Input(shape=(224, 224, 3))
-        model = Model(inputs=inp, outputs=self.call(inp))
-        return model
 
 
 class Squeezenet_CIFAR(Squeezenet):
@@ -222,12 +215,4 @@ class Squeezenet_CIFAR(Squeezenet):
         out = self.l_16(logits)
 
         return out
-
-    def get_keras_model(self):
-        inp = Input(shape=self._input_shape)
-        model = Model(inputs=inp, outputs=self.call(inp, training=True))
-        return model
-
-
-
 

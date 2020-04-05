@@ -51,8 +51,10 @@ class CheckpointHandler:
 
         else:
             ckpt_id = int(ckpt2load)
-            ckpt_ids = [int(x.split('-'[-1])) for x in self._ckpt_mngr.checkpoints]
+            # Available checkpoints in checkpoint directory
+            ckpt_ids = [int(x.split('-')[-1]) for x in self._ckpt_mngr.checkpoints]
 
+            # Check if the user demanded checkpoint is available to be loaded from
             try:
                 ckpt_path = self._ckpt_mngr.checkpoints[ckpt_ids.index(ckpt_id)]
             except ValueError:

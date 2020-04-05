@@ -6,7 +6,7 @@ from my_logger import get_logger
 
 from squeezenet.config import get_config
 from squeezenet.inputs import get_input_pipeline
-from squeezenet.networks.squeezenet import Squeezenet_CIFAR, Squeezenet_Imagenet
+from squeezenet.networks.squeezenet import Squeezenet_Imagenet
 from squeezenet import eval
 from squeezenet.checkpoint_handler import CheckpointHandler
 

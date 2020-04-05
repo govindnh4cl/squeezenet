@@ -245,26 +245,19 @@ class InputImagenet(InputImagenetBase):
         # Read image from filesystem
         x = tf.io.decode_jpeg(tf.io.read_file(x), channels=3)
 
-        if self._cfg.model.data_format == 'channels_last':
-            # Crop image
-            ht, wd = x.shape[0], x.shape[1]
-            small_edge = min(ht, wd)
-            x_min = int((wd - small_edge) / 2)
-            x_max = int(x_min + small_edge)
-            y_min = int((ht - small_edge) / 2)
-            y_max = int(y_min + small_edge)
+        # Crop image
+        ht, wd = x.shape[0], x.shape[1]
+        small_edge = min(ht, wd)
+        x_min = int((wd - small_edge) / 2)
+        x_max = int(x_min + small_edge)
+        y_min = int((ht - small_edge) / 2)
+        y_max = int(y_min + small_edge)
 
-            cropped_x = x[y_min:y_max, x_min:x_max, :]  # Cropping operation
+        cropped_x = x[y_min:y_max, x_min:x_max, :]  # Cropping operation
 
-            # Resize image to common size.
-            # This converts the dtype from uint8 to float32
-            x = tf.image.resize(cropped_x, (224, 224))
-
-        else:
-            raise NotImplementedError
-            x[:, 0, :, :] -= 123
-            x[:, 1, :, :] -= 117
-            x[:, 2, :, :] -= 104
+        # Resize image to common size.
+        # This converts the dtype from uint8 to float32
+        x = tf.image.resize(cropped_x, (224, 224))
 
         return x
 

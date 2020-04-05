@@ -210,11 +210,12 @@ def _set_eval(cfg):
 
         raise Exception(err_msg)
 
-    if not (cfg.eval.checkpoint_id in ('latest', 'none') or isinstance(cfg.eval.checkpoint_id, int)):
-        err_msg = "Bad configuration. model_saver.checkpoint_id should be either of  'latest', 'none' "\
-                  "or an integer. Found: {:}".format(cfg.eval.checkpoint_id)
+    if cfg.eval.load_from == 'checkpoint':
+        if not (cfg.eval.checkpoint_id in ('latest', 'none') or isinstance(cfg.eval.checkpoint_id, int)):
+            err_msg = "Bad configuration. model_saver.checkpoint_id should be either of  'latest', 'none' "\
+                      "or an integer. Found: {:}".format(cfg.eval.checkpoint_id)
 
-        raise Exception(err_msg)
+            raise Exception(err_msg)
     else:
         cfg.eval.checkpoint_id = 'none'  # Force set to not load from checkpoint
 

@@ -97,27 +97,6 @@ def _test_dataset_params(cfg):
     if cfg.dataset.dataset == 'imagenet':
         assert cfg.imagenet.num_classes == 1000  # Sanity check
 
-        # Check if all needed file are found
-        needed_files = list()
-
-        files = dict()  # List of needed files/directories
-        files['train'] = [cfg.imagenet.train_img_paths, cfg.imagenet.wnid_to_ilsvrc2012_id_path]
-        files['val'] = [cfg.imagenet.val_img_base_path, cfg.imagenet.val_labels_csv]
-        files['test'] = []  # TODO: implement
-
-        if cfg.misc.mode == 'train':
-            needed_files += files['train']
-
-            if cfg.validation.enable is True:
-                needed_files += files['val']
-
-        elif cfg.misc.mode == 'eval':
-            needed_files += files[cfg.eval.portion]
-
-        for file_path in needed_files:
-            if not os.path.exists(file_path):
-                raise ValueError('Expected file: {:s} not found.'.format(file_path))
-
     # ------------ Unsupported dataset -------------------
     else:
         raise ValueError('Unsupported dataset.dataset in configuration file: {:}'.format(cfg.dataset.dataset))

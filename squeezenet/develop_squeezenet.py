@@ -9,6 +9,7 @@ from squeezenet.inputs import get_input_pipeline
 from squeezenet.networks.squeezenet import Squeezenet_Imagenet
 from squeezenet import eval
 from squeezenet.checkpoint_handler import CheckpointHandler
+from squeezenet.utils import load_saved_model
 
 
 class DevelopSqueezenet:
@@ -204,15 +205,6 @@ class DevelopSqueezenet:
 
         return
 
-    def _load_saved_model(self):
-        self.logger.info("Loading model from directory: {:s}".format(self.cfg.directories.dir_model))
-        if not tf.saved_model.contains_saved_model(self.cfg.directories.dir_model):
-            raise OSError("Model directory: {:s} does not contain a saved model.")
-        else:
-            self.net = tf.saved_model.load(self.cfg.directories.dir_model)
-
-        return
-
     def _run_eval_mode(self):
         """
         Evaluates the model on dataset
@@ -221,7 +213,7 @@ class DevelopSqueezenet:
         if self.cfg.eval.load_from == 'checkpoint':
             self.load_checkpointables(self.cfg.eval.checkpoint_id)
         else:  # Load from a saved model
-            self._load_saved_model()
+            self.net = load_saved_model(self.cfg.directories.dir_model)
 
         self.logger.info('Running evaluation on dataset portion: {:s}'.format(self.cfg.eval.portion))
         self._pipeline[self.cfg.eval.portion] = get_input_pipeline(self.cfg, 'inference', self.cfg.eval.portion)

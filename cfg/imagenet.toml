@@ -91,9 +91,5 @@ title = "Config file for running model with Imagenet"
     checkpoint_id = 'latest'
 
 
-[model]
-    batch_norm_decay = 0.9
-    weight_decay = 0.0
-
 [preprocessing]
     enable_augmentation = true

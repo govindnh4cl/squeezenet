@@ -72,8 +72,6 @@ class Squeezenet(ABC, tf.keras.Model):
         self.logger.info('Using model: {:s}'.format(self.model_name))
 
         self._num_classes = cfg.dataset.num_classes
-        self._weight_decay = cfg.model.weight_decay
-        self._batch_norm_decay = cfg.model.batch_norm_decay
         self._input_shape = None
 
         return

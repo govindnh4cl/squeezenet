@@ -156,7 +156,7 @@ class InputImagenet(Pipeline):
                 if not os.path.exists(img_path):
                     raise Exception('Unable to find image for training: {:s}'.format(img_path))
 
-        # Get corresponding integer class ID (1 to 1000) for each image in self._img_paths
+        # Get corresponding integer class ID (0 to 999) for each image in self._img_paths
         img_labels = [self._map_wnid_to_internal_id[os.path.basename(os.path.dirname(img_path))]
                       for img_path in img_paths]
 

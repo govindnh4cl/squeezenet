@@ -37,7 +37,7 @@ class FireModule(tf.keras.Model):
             padding='same',
             kernel_initializer='glorot_uniform')
 
-        self.bn_e1x1 = BatchNormalization()
+        # self.bn_e1x1 = BatchNormalization()
 
         self.e3x3 = Conv2D(
             expand_depth,
@@ -47,7 +47,9 @@ class FireModule(tf.keras.Model):
             padding='same',
             kernel_initializer='glorot_uniform')
 
-        self.bn_e3x3 = BatchNormalization()
+        # self.bn_e3x3 = BatchNormalization()
+
+        self.bn_end = BatchNormalization()
 
         # TODO: bn_e1x1 and bn_e3x3 can be replaced with a single BN layer
 
@@ -55,10 +57,14 @@ class FireModule(tf.keras.Model):
 
     def call(self, input_tensor, training):
         s_out = self.bn_s(self.s(input_tensor), training=training)
-        e_out_0 = self.bn_e1x1(self.e1x1(s_out), training=training)
-        e_out_1 = self.bn_e3x3(self.e3x3(s_out), training=training)
 
-        return tf.concat([e_out_0, e_out_1], self.channel_axis)
+        e_out_0 = self.e1x1(s_out)
+        e_out_1 = self.e3x3(s_out)
+        e_out = tf.concat([e_out_0, e_out_1], self.channel_axis)
+
+        out = self.bn_end(e_out)
+
+        return out
 
 
 class Squeezenet(ABC, tf.keras.Model):

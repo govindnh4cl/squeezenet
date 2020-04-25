@@ -45,8 +45,7 @@ def _set_directories(cfg):
 
     os.makedirs(cfg.directories.dir_ckpt, exist_ok=True)
     logger.debug('Checkpoint directory: {:s}'.format(cfg.directories.dir_ckpt))
-    # TODO: remove this extra 'train_params' directory
-    cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt, 'train_params')
+    cfg.directories.dir_ckpt_train = os.path.join(cfg.directories.dir_ckpt)
     os.makedirs(cfg.directories.dir_ckpt_train, exist_ok=True)
     logger.debug('Checkpoint train parameters directory: {:s}'.format(cfg.directories.dir_ckpt))
 

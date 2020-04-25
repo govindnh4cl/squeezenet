@@ -96,6 +96,15 @@ python main.py --cfg cfg/imagenet.toml
 The default configuration parameters in `cfg/imagenet.toml` run the network in evaluation on validation set of Imagenet.
 
 
+# Saving Model from Checkpoint
+
+We support saving a model (for deployment) through an isolated script `save_model.py`. This script takes in a checkpoint based on the configuration parameter `model_saver->checkpoint_id` (in `cfg/imagenet.toml`) and saves it into `directories->dir_model` directory. Simply, run the command:
+
+```bash
+python scripts/save_model.py --cfg cfg/imagenet.toml
+```
+
+
 # Logging
 
 All logs of training/evaluation/demo are automatically saved in the `logs` directory. You could change the logging configuration by supplying a different `log_option` parameter to `setup_logger()` function in `main.py`. Please see the docstring of `setup_logger()` to know more.

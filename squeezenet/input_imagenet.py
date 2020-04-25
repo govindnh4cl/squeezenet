@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 import tensorflow as tf
 import pandas as pd
 
@@ -111,21 +112,22 @@ class InputImagenet(Pipeline):
                 'word': self._map_wnid_to_name[wnid]}
 
     def _arrange_samples(self):
-        indices = tf.range(len(self))
+        indices = np.arange(len(self))
 
         # Enable for debugging purposes. Limits sample count to a small number.
         if 0:
-            tf.random.set_seed(0)
+            np.random.seed(0)
             limit = min(4096, len(indices))  # Just use a small set
             indices = indices[:limit]
             self._count = limit  # The number of samples
 
-        # Shuffle the samples
+        # Shuffle the sample indices
         if self._do_shuffle is True:
-            indices = tf.random.shuffle(indices, seed=1337)
+            np.random.shuffle(indices)
 
-        self._img_paths = [self._img_paths[x] for x in indices]
-        self._img_labels = [self._img_labels[x] for x in indices]
+        # Convert to Numpy array for faster shuffling. Then shuffle if configured to do so.
+        self._img_paths = np.array(self._img_paths)[indices]  # Convert to Numpy array for faster shuffling
+        self._img_labels = np.array(self._img_labels)[indices]
 
         return indices
 

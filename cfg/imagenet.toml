@@ -47,7 +47,7 @@ title = "Config file for running model with Imagenet"
     #   <int>: checkpoint integer id
     checkpoint_id = 'latest'
 
-    enable_intermittent_sleep = true
+    enable_intermittent_sleep = false
     sleep_interval = 1800  # In seconds. Interval after which to sleep
     sleep_duration = 300  # In seconds. Duration for which to sleep
 

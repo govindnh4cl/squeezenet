@@ -31,7 +31,7 @@ class CheckpointHandler:
         :param ckpt2load: Specify which checkpoint to load. Supported values
             'latest': Use the most recent checkpoint
             <int>: Specify the integer ID of the checkpoint to load from
-        :return: None
+        :return: Checkpoint integer index. -1 if no checkpoint was loaded.
         """
         assert (ckpt2load == 'latest') or isinstance(ckpt2load, int)  # Sanity check
 
@@ -46,6 +46,7 @@ class CheckpointHandler:
             ckpt_path = self._ckpt_mngr.latest_checkpoint
             if ckpt_path is None:
                 self._logger.info('No existing checkpoint found.')
+                ckpt_id = -1
             else:
                 ckpt_id = int(ckpt_path.split('-')[-1])
 
@@ -71,7 +72,7 @@ class CheckpointHandler:
             self._logger.info('Checkpoint ID: {:d} restored from: {:s}'
                               .format(ckpt_id, str(self._ckpt_mngr.latest_checkpoint)))
 
-        return
+        return ckpt_id
 
     def verify_checkpoint_restore(self):
         """

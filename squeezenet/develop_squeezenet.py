@@ -10,6 +10,7 @@ from squeezenet.networks.squeezenet import Squeezenet_Imagenet
 from squeezenet import eval
 from squeezenet.checkpoint_handler import CheckpointHandler
 from squeezenet.utils import load_saved_model
+from squeezenet.optimizer import CustomLearningRateScheduler
 
 
 class DevelopSqueezenet:
@@ -24,6 +25,7 @@ class DevelopSqueezenet:
 
         self.net = None  # Main network instance
         self.opt = None  # Optimizer instance
+        self._lr_scheduler = CustomLearningRateScheduler()
         self._ckpt_hdl = CheckpointHandler(self.cfg)
 
         return
@@ -36,16 +38,19 @@ class DevelopSqueezenet:
                 'none': Do not load from a checkpoint
                 'latest': Latest checkpoint
                 <int>: checkpoint integer id
-        :return:
+        :return: Checkpoint integer index. -1 if no checkpoint was loaded.
         """
         self.net = self._set_network_for_training()
-        self.opt = tf.keras.optimizers.SGD(0.04)  # Optimizer
+        # Optimizer. Here, learning rate doesn't matter since we would overwrite it during training anyway
+        self.opt = tf.keras.optimizers.SGD()
 
         if ckpt2load == 'none':
             self.logger.info('Not looking for a checkpoint.')
+            ckpt_id = -1
         else:
-            self._ckpt_hdl.load_checkpoint({'net': self.net, 'opt': self.opt}, ckpt2load)
-        return
+            ckpt_id = self._ckpt_hdl.load_checkpoint({'net': self.net, 'opt': self.opt}, ckpt2load)
+
+        return ckpt_id
 
     @tf.function  # For faster training speed
     def _train_step(self, batch_train):
@@ -75,7 +80,9 @@ class DevelopSqueezenet:
         self.logger.info('Training with Tensorflow API')
 
         # Create network. Also load values from checkpoint if checkpoints are enabled.
-        self.load_checkpointables(self.cfg.train.checkpoint_id)
+        # last_epoch_idx is integer index. In case of valid checkpoint loading, this is the epoch index
+        #   of the checkpoint's epoch. Other it is -1
+        last_epoch_idx = self.load_checkpointables(self.cfg.train.checkpoint_id)
 
         if self.cfg.train.enable_chekpoints:
             checkpoint_verified = False
@@ -85,20 +92,24 @@ class DevelopSqueezenet:
         # TODO: This is no longer required
         self.net.training = True  # Enable training mode
 
-        # Used for manually updating learning rate every couple of hours during training
-        if 1:
-            custom_lr = 0.04
-            self.logger.info('Using learning rate: {:f}'.format(custom_lr))
-            self.opt = tf.keras.optimizers.SGD(custom_lr)
-
         '''Main Loop'''
         last_sleep_time = time.time()
+        last_lr = np.nan  # Learning rate of last epoch
         batch_counter = tf.zeros(1, dtype=tf.int64)  # Overall batch-counter to serve as step for Tensorboard
         # Loop over epochs
-        for epoch_idx in range(self.cfg.train.num_epochs):
+        epoch_idx_start = last_epoch_idx + 1
+        epoch_idx_end = epoch_idx_start + self.cfg.train.num_epochs
+        for epoch_idx in range(epoch_idx_start, epoch_idx_end):
             start_time = time.time()
             # Running average loss per sample during this epoch. Needed for printing loss during training
             running_loss = tf.keras.metrics.Mean()
+
+            # Setup optimizer learning rate
+            new_lr = self._lr_scheduler.get_learning_rate(epoch_idx)
+            if new_lr != last_lr:
+                self.logger.info('Using learning rate: {:f}'.format(new_lr))
+                self.opt.learning_rate.assign(new_lr)  # Force set a custom learning rate into optimizer
+                last_lr = new_lr
 
             # Loop over batches in the epoch
             for batch_idx, train_batch in enumerate(train_dataset):

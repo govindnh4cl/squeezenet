@@ -76,6 +76,7 @@ title = "Config file for running model with Imagenet"
 
     # If eval.load_from is 'checkpoint', then this is used to specify which checkpoint to load from
     # Searches for checkpoints in directory specified by directories.dir_ckpt
+    #   'none': Do not load from a stored checkpoint. We should get about 0.1% top-1 accuracy with Imagenet with this
     #   'latest': Latest checkpoint
     #   <int>: checkpoint integer id
     checkpoint_id = 'latest'

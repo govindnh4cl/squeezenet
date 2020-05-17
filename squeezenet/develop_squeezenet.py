@@ -20,8 +20,6 @@ class DevelopSqueezenet:
         self._pipeline = dict()
 
         self.loss_fn = tf.losses.categorical_crossentropy  # Loss function
-        # self.loss_fn = lambda y, y_hat: -tf.math.reduce_sum(y * tf.math.log(y_hat + tf.keras.backend.epsilon()), axis=1)
-
         self.net = None  # Main network instance
         self.opt = None  # Optimizer instance
         self._lr_scheduler = CustomLearningRateScheduler()

@@ -85,6 +85,8 @@ To train the model on Imagenet dataset, set the `misc->mode` parameter in `cfg/i
 python main.py --cfg cfg/imagenet.toml
 ```
 
+File `logs/training_76epochs.log` contains the per-epoch log of training the model that is shared with this repo.
+
 ## Evaluation
 
 To train the model on Imagenet dataset, set the `misc->mode` parameter in `cfg/imagenet.toml` file to `eval` and execute:

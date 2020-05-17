@@ -118,7 +118,7 @@ Current accuracy results on ImageNet:
 |                                   | Top-1 Accuracy | Top-5 Accuracy |
 |-----------------------------------|----------------|----------------|
 | Train Set                         |             -  |              - |
-| Validation Set                    |        55.11%  |         78.11% |
+| Validation Set                    |        55.7%   |         78.7%  |
 | Test Set                          |             -  |              - |
 | Test Set (Paper's implementation) |        57.5%   |         80.3%  |
 | Test Set (AlexNet)                |        57.2%   |         80.3%  |

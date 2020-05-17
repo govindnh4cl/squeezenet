@@ -4,6 +4,7 @@ __pycache__
 checkpoints
 logs
 models
+resources
 tensorboard
 
 

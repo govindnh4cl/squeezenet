@@ -13,6 +13,11 @@ from squeezenet.develop_squeezenet import DevelopSqueezenet
 
 
 def main():
+    # log_option:
+    #    0: No logging
+    #    1: On screen logs
+    #    2: 1 + File logging to logs/latest.log
+    #    3: 2 + File logging to logs/<timestamp>.log
     setup_logger(log_option=2)
     logger = get_logger()
 

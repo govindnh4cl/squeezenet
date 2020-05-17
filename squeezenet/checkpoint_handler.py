@@ -70,7 +70,7 @@ class CheckpointHandler:
         else:
             self._ckpt.restore(ckpt_path)
             self._logger.info('Checkpoint ID: {:d} restored from: {:s}'
-                              .format(ckpt_id, str(self._ckpt_mngr.latest_checkpoint)))
+                              .format(ckpt_id, str(ckpt_id)))
 
         return ckpt_id
 

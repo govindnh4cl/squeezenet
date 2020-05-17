@@ -33,13 +33,13 @@ title = "Config file for running model with Imagenet"
 # ----- Only used if misc.mode is 'train' -----
 [train]
     batch_size = 32
-    num_epochs = 2              # Count epochs to further train for
+    num_epochs = 75             # Count epochs to further train for
     enable_summary = false       # Enable/disable tensorboard summary for training
 
     enable_chekpoints = true  # Whether to enable storing checkpoints with n/w parameters while training
     # Checkpoint parameters below are only used if enable_checkpoints is true
     checkpoint_interval = 1  # Epoch interval after which checkpoint must be saved
-    keep_n_checkpoints = 200  # Count of checkpoints to keep
+    keep_n_checkpoints = 100  # Count of last checkpoints to keep
     # Searches for checkpoints in directory specified by directories.dir_ckpt
     # Specify the ckeckpoint from which to save the model
     #   'none': Do not load from a stored checkpoint. This allows storing new ckpts while also starting from scratch
@@ -59,7 +59,7 @@ title = "Config file for running model with Imagenet"
     # ----- parameters below are ignored if enable is false -----
 
     batch_size = -1             # If -1, then uses the same batch_size as in training
-    validation_interval = 10    # After how many epochs should validation set be evaluated
+    validation_interval = 1    # After how many epochs should validation set be evaluated
 
 
 # Eval phase parameters
